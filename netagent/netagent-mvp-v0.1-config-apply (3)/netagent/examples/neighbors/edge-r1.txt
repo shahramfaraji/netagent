@@ -1,0 +1,4 @@
+-------------------------
+Device ID: core-sw1.lab.local
+Platform: cisco WS-C3850,  Capabilities: Switch IGMP
+Interface: GigabitEthernet0/0/0,  Port ID (outgoing port): GigabitEthernet1/0/1
