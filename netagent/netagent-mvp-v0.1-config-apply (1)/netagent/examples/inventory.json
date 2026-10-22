@@ -1,7 +1,0 @@
-{
-  "devices": [
-    {"hostname": "core-sw1", "host": "10.0.0.2", "platform": "cisco_ios", "role": "switch"},
-    {"hostname": "edge-r1", "host": "10.0.0.1", "platform": "cisco_ios", "role": "router"},
-    {"hostname": "fw1", "host": "10.0.0.254", "platform": "cisco_asa", "role": "firewall"}
-  ]
-}
