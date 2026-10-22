@@ -10,6 +10,8 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
+from .deps import ensure_nmap
+
 MGMT_PORTS = (22, 23, 161, 443, 830)
 MAX_HOSTS = 4096
 log = logging.getLogger(__name__)
@@ -83,7 +85,7 @@ def parse_nmap_xml(xml_text: str) -> list[DiscoveredHost]:
 
 def nmap_scan(cidr: str, ports=MGMT_PORTS) -> list[DiscoveredHost]:
     expand_targets(cidr)  # validates and enforces size limit
-    exe = shutil.which("nmap")
+    exe = shutil.which("nmap") or ensure_nmap()
     if not exe:
         raise FileNotFoundError("nmap not installed")
     port_arg = ",".join(str(p) for p in ports)

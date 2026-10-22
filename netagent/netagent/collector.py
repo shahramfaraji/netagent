@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .credentials import Credential, quiet_transport_logs, redact
+from .deps import ensure_netmiko
 from .models import Device
 
 log = logging.getLogger(__name__)
@@ -45,7 +46,9 @@ def fetch(device: Device, cred: Credential, timeout: int = 30) -> dict[str, str]
     try:
         from netmiko import ConnectHandler  # optional dependency
     except ImportError as exc:
-        raise RuntimeError("netmiko not installed: pip install 'netagent[ssh]'") from exc
+        if not ensure_netmiko():
+            raise RuntimeError("netmiko not installed: pip install 'netagent[ssh]'") from exc
+        from netmiko import ConnectHandler
     params = dict(device_type=device.platform, host=device.host, port=device.port,
                   username=cred.username, password=cred.password, secret=cred.secret,
                   timeout=timeout, auth_timeout=timeout, fast_cli=False)

@@ -18,6 +18,7 @@ from typing import Callable
 
 from .collector import SHOW_CONFIG, ConfigStore, normalize
 from .credentials import Credential, quiet_transport_logs, redact
+from .deps import ensure_netmiko
 from .models import Device
 
 log = logging.getLogger(__name__)
@@ -124,7 +125,9 @@ def _default_connector(**params):
     try:
         from netmiko import ConnectHandler
     except ImportError as exc:
-        raise RuntimeError("netmiko not installed: pip install 'netagent[ssh]'") from exc
+        if not ensure_netmiko():
+            raise RuntimeError("netmiko not installed: pip install 'netagent[ssh]'") from exc
+        from netmiko import ConnectHandler
     return ConnectHandler(**params)
 
 
