@@ -112,8 +112,26 @@ class TestCLI(unittest.TestCase):
             for hostname in ("core-sw1", "edge-r1", "fw1"):
                 self.assertIn(hostname, report)
 
+    def test_test_ssh_targets_only_named_inventory_device(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            inventory = Path(tmp) / "inventory.json"
+            inventory.write_text(json.dumps({"devices": [
+                {"hostname": "mt-router", "host": "192.168.28.222", "platform": "mikrotik_routeros", "role": "router"},
+                {"hostname": "other", "host": "192.0.2.2", "platform": "cisco_ios"},
+            ]}), encoding="utf-8")
+            with patch("netagent.cli.get_credential", return_value=Credential("operator", "fixture-password")), \
+                 patch("netagent.cli.check_ssh_connection") as test_connection, \
+                 redirect_stdout(StringIO()):
+                rc = main(["test-ssh", "--inventory", str(inventory), "--device", "mt-router"])
+            self.assertEqual(rc, 0)
+            device = test_connection.call_args.args[0]
+            self.assertEqual(device.hostname, "mt-router")
+            self.assertEqual(device.host, "192.168.28.222")
+            self.assertEqual(device.platform, "mikrotik_routeros")
+
     def test_bad_cidr_returns_error_code(self):
         err = StringIO()
         with redirect_stdout(StringIO()), redirect_stderr(err):
             self.assertEqual(main(["discover", "not-a-network"]), 1)
         self.assertIn("error:", err.getvalue())
+

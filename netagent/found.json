@@ -1,1 +1,74 @@
-[]
+[
+  {
+    "ip": "192.168.28.21",
+    "open_ports": [
+      22
+    ],
+    "hostname": "",
+    "os_guess": "Microsoft Windows 10 1703 or Windows 11 21H2 - 23H2",
+    "role_guess": "unknown",
+    "services": [
+      {
+        "port": 22,
+        "protocol": "tcp",
+        "name": "ssh",
+        "product": "OpenSSH",
+        "version": "for_Windows_9.5",
+        "extrainfo": "protocol 2.0"
+      }
+    ]
+  },
+  {
+    "ip": "192.168.28.222",
+    "open_ports": [
+      22
+    ],
+    "hostname": "",
+    "os_guess": "Linux 3.18",
+    "role_guess": "router",
+    "services": [
+      {
+        "port": 22,
+        "protocol": "tcp",
+        "name": "ssh",
+        "product": "MikroTik RouterOS sshd",
+        "extrainfo": "protocol 2.0"
+      }
+    ]
+  },
+  {
+    "ip": "192.168.28.253",
+    "open_ports": [
+      22,
+      23,
+      443
+    ],
+    "hostname": "",
+    "os_guess": "Belkin N300 WAP (Linux 2.6.30)",
+    "role_guess": "access_point",
+    "services": [
+      {
+        "port": 22,
+        "protocol": "tcp",
+        "name": "ssh",
+        "product": "Dropbear sshd",
+        "version": "0.51",
+        "extrainfo": "protocol 2.0"
+      },
+      {
+        "port": 23,
+        "protocol": "tcp",
+        "name": "telnet",
+        "product": "BusyBox telnetd",
+        "version": "1.00-pre7 - 1.14.0",
+        "extrainfo": "Observa Telecom BHS-RTA WAP telnetd"
+      },
+      {
+        "port": 443,
+        "protocol": "tcp",
+        "name": "https",
+        "tunnel": "ssl"
+      }
+    ]
+  }
+]

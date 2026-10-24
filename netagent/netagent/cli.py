@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .collector import ConfigStore, fetch
-from .compliance import evaluate, load_rules, report_markdown
+from .collector import ConfigStore, fetch, check_ssh_connection
+from .compliance import evaluate_detailed, load_rules, report_markdown
 from .credentials import get_credential
 from .discovery import discover
 from .deploy import apply_config, preview_config, rollback_config
@@ -20,15 +20,28 @@ from .topology import build_graph, parse_neighbors, to_json, to_mermaid
 def cmd_discover(a) -> int:
     hosts = discover(a.cidr)
     rows = [{"ip": h.ip, "open_ports": h.open_ports, "hostname": h.hostname,
-             "os_guess": h.os_guess, "role_guess": h.guessed_role} for h in hosts]
+             "os_guess": h.os_guess, "role_guess": h.guessed_role,
+             "services": h.services} for h in hosts]
     text = json.dumps(rows, indent=2)
     Path(a.out).write_text(text, encoding="utf-8") if a.out else print(text)
     print(f"{len(rows)} host(s) with management ports open", file=sys.stderr)
     return 0
 
 
+def cmd_test_ssh(a) -> int:
+    device = _selected_device(a.inventory, a.device)
+    cred = get_credential(prompt=not a.no_prompt)
+    check_ssh_connection(device, cred)
+    print(f"SSH OK: {device.hostname} ({device.host}:{device.port}, {device.platform})")
+    return 0
+
+
 def cmd_backup(a) -> int:
     devices = load_inventory(a.inventory)
+    if a.device:
+        devices = [device for device in devices if device.hostname == a.device]
+        if not devices:
+            raise ValueError(f"device {a.device!r} was not found in inventory")
     cred = get_credential(prompt=not a.no_prompt)
     store = ConfigStore(Path(a.data) / "configs")
     nbr_dir = Path(a.data) / "neighbors"
@@ -137,6 +150,8 @@ def cmd_audit(a) -> int:
     devices = load_inventory(a.inventory)
     configs = Path(a.configs)
     results = {}
+    unknown_results = {}
+    evaluated_counts = {}
     missing = []
     for d in devices:
         p = configs / d.hostname / "latest.cfg"
@@ -146,17 +161,25 @@ def cmd_audit(a) -> int:
             missing.append(d.hostname)
             print(f"missing config for {d.hostname}", file=sys.stderr)
             continue
-        results[d.hostname] = evaluate(d.hostname, d.platform, p.read_text(encoding="utf-8"), rules)
-    md = report_markdown(results, len(rules))
+        findings, unknowns, evaluated = evaluate_detailed(
+            d.hostname, d.platform, p.read_text(encoding="utf-8"), rules
+        )
+        results[d.hostname] = findings
+        unknown_results[d.hostname] = unknowns
+        evaluated_counts[d.hostname] = evaluated
+    md = report_markdown(results, len(rules), unknown_results, evaluated_counts)
     if missing:
         md += "\n## Missing configurations\n\n"
         md += "".join(f"- **{hostname}**: no configuration available; audit incomplete.\n"
                       for hostname in sorted(missing))
     Path(a.out).write_text(md, encoding="utf-8") if a.out else print(md)
     worst = [f for fs in results.values() for f in fs if f.severity in ("critical", "high")]
+    has_unknown = any(unknown_results.values())
     if missing:
         return 1
-    return 2 if worst and a.fail_on_high else 0
+    if a.fail_on_high and (worst or has_unknown):
+        return 2
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -169,8 +192,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("cidr"); s.add_argument("--out")
     s.set_defaults(func=cmd_discover)
 
+    s = sub.add_parser("test-ssh", help="test SSH login to one inventory device; no config commands")
+    s.add_argument("--inventory", required=True)
+    s.add_argument("--device", required=True, help="exact inventory hostname; one device per invocation")
+    s.add_argument("--no-prompt", action="store_true", help="use environment credentials only")
+    s.set_defaults(func=cmd_test_ssh)
+
     s = sub.add_parser("backup", help="fetch configs over SSH (read-only)")
     s.add_argument("--inventory", required=True); s.add_argument("--data", default="data")
+    s.add_argument("--device", help="optional exact hostname; when set, back up only that device")
     s.add_argument("--no-prompt", action="store_true", help="use env vars only")
     s.set_defaults(func=cmd_backup)
 

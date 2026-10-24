@@ -22,6 +22,27 @@ class TestDiscovery(unittest.TestCase):
     def test_role_guess(self):
         self.assertEqual(DiscoveredHost("1.1.1.1", [22], os_guess="Cisco ASA").guessed_role, "firewall")
         self.assertEqual(DiscoveredHost("1.1.1.1", [22], os_guess="Arista EOS").guessed_role, "switch")
+        # A clear service fingerprint takes priority over a conflicting OS guess.
+        self.assertEqual(
+            DiscoveredHost(
+                "192.168.28.222", [22], os_guess="D-Link DIR-835 WAP",
+                services=[{"port": 22, "name": "ssh", "product": "MikroTik RouterOS sshd"}],
+            ).guessed_role,
+            "router",
+        )
+        self.assertEqual(
+            DiscoveredHost("192.168.28.253", [22, 23, 443],
+                           os_guess="Belkin N300 WAP").guessed_role,
+            "access_point",
+        )
+        # Generic embedded services alone are insufficient to infer a role.
+        self.assertEqual(
+            DiscoveredHost(
+                "192.0.2.1", [22],
+                services=[{"port": 22, "name": "ssh", "product": "Dropbear sshd"}],
+            ).guessed_role,
+            "unknown",
+        )
 
     def test_range_limits(self):
         self.assertEqual(len(expand_targets("10.0.0.0/30")), 2)

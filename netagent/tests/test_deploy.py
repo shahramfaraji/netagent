@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -266,7 +267,8 @@ class TestDeploy(unittest.TestCase):
         self.assertTrue(first.exists())
         self.assertTrue(second.exists())
         self.assertNotEqual(first, second)
-        self.assertEqual(first.stat().st_mode & 0o777, 0o600)
+        if os.name != "nt":  # POSIX permission bits are not meaningful on Windows
+            self.assertEqual(first.stat().st_mode & 0o777, 0o600)
 
     def test_manifest_path_traversal_is_blocked(self):
         with self.assertRaisesRegex(ValueError, "path traversal"):

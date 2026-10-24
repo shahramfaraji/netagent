@@ -1,0 +1,31 @@
+[
+  {
+    "ip": "192.168.28.21",
+    "open_ports": [
+      22
+    ],
+    "hostname": "",
+    "os_guess": "",
+    "role_guess": "unknown"
+  },
+  {
+    "ip": "192.168.28.222",
+    "open_ports": [
+      22
+    ],
+    "hostname": "",
+    "os_guess": "",
+    "role_guess": "unknown"
+  },
+  {
+    "ip": "192.168.28.253",
+    "open_ports": [
+      22,
+      23,
+      443
+    ],
+    "hostname": "",
+    "os_guess": "",
+    "role_guess": "unknown"
+  }
+]

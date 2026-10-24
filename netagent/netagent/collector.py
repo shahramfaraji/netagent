@@ -42,6 +42,27 @@ def normalize(config: str) -> str:
     return "\n".join(ln for ln in lines if not any(v.match(ln) for v in VOLATILE)).strip() + "\n"
 
 
+def check_ssh_connection(device: Device, cred: Credential, timeout: int = 15) -> None:
+    """Verify SSH authentication and prompt access without running configuration commands."""
+    try:
+        from netmiko import ConnectHandler  # optional dependency
+    except ImportError as exc:
+        if not ensure_netmiko():
+            raise RuntimeError("netmiko not installed: pip install 'netagent[ssh]'") from exc
+        from netmiko import ConnectHandler
+
+    params = dict(
+        device_type=device.platform, host=device.host, port=device.port,
+        username=cred.username, password=cred.password, secret=cred.secret,
+        timeout=timeout, auth_timeout=timeout, fast_cli=False,
+    )
+    try:
+        with quiet_transport_logs(), ConnectHandler(**params) as conn:
+            conn.find_prompt()
+    except Exception as exc:
+        raise RuntimeError(redact(f"{device.hostname}: {type(exc).__name__}: {exc}", cred)) from None
+
+
 def fetch(device: Device, cred: Credential, timeout: int = 30) -> dict[str, str]:
     try:
         from netmiko import ConnectHandler  # optional dependency

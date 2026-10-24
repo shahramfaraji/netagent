@@ -1,0 +1,12 @@
+{
+  "devices": [
+    {
+      "hostname": "mikrotik-28-222",
+      "host": "192.168.28.222",
+      "platform": "mikrotik_routeros",
+      "role": "router",
+      "port": 22,
+      "tags": ["lab", "mikrotik"]
+    }
+  ]
+}

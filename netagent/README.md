@@ -36,6 +36,22 @@ netagent rollback --inventory inventory.json --device core-sw1 --data data --app
 - Live config writes require dry-run preview, a verified backup, a typed human approval, and a rollback path. There is no unattended/`--yes` apply mode.
 - Discovery scans only the range passed by the operator.
 
+## MikroTik SSH test
+
+Use the dedicated inventory example for the discovered MikroTik at `192.168.28.222`.
+The SSH test authenticates and reads the device prompt only; it does not run configuration commands.
+The backup command runs RouterOS `/export` (read-only) and stores the result under the selected data directory.
+Treat saved configurations as sensitive files.
+
+```powershell
+python -m pip install -e ".[ssh]"
+netagent test-ssh --inventory examples/mikrotik-inventory.json --device mikrotik-28-222
+netagent backup --inventory examples/mikrotik-inventory.json --device mikrotik-28-222 --data data
+```
+
+Credentials are prompted at runtime. Do not put passwords into the inventory file or paste them into chat.
+Run the backup only after the SSH test succeeds.
+
 ## Quick start
 ```bash
 pip install -e .[ssh]
