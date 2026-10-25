@@ -14,9 +14,9 @@ hostname SW1ACC-R4-Ed_Mazandaran
 boot-start-marker
 boot-end-marker
 !
-enable secret 9 $9$aNWUc9HZmD.4ep$tE3woVW/sWae6LinTro4lf/1NGEVO3ZqWYLh5dqz7dI
+enable secret 9 $9$anTro4lf/1NGEVO3ZqWYLh5dqz7dI
 !
-username admin privilege 15 secret 9 $9$sTTL9qmpuAobt3$11sKLbbbMBM0Uom8UjjRPkd.NxZYczsKOzpFQ2fDNIc
+username admin privilege 15 secret 9 $9$sRPkd.NxZYczsKOzpFQ2fDNIc
 aaa new-model
 !
 !
@@ -55,7 +55,7 @@ switch 1 provision ws-c2960x-24ts-l
 !
 ip dhcp snooping vlan 1
 ip dhcp snooping
-ip domain-name Ed_Mazandaran.tamin.org
+ip domain-name Ed_Maza
 !
 !
 !
@@ -350,7 +350,7 @@ interface GigabitEthernet1/0/23
  ip dhcp snooping limit rate 20
 !
 interface GigabitEthernet1/0/24
- description Conneceted to SW1Core-R1-Ed_Mazandaran Gi 1/0/20
+ description Conneceted to SW1Core-R1-Ed_Maz Gi 1/0/20
  switchport mode trunk
  ip dhcp snooping trust
 !
@@ -375,12 +375,12 @@ ip http secure-server
 !
 !
 snmp-server group tamin v3 priv 
-tacacs-server host 10.16.1.38 key 7 00212B23067D1E2515784F4033360E3430201F09080F15756E
+tacacs-server host 10.16.1.38 key 7 00212B23067E3430201F09080F15756E
 !
 !
 radius server ISE_RADIUS
  address ipv4 172.29.0.3 auth-port 1645 acct-port 1646
- key 7 15435C5E4A78726A787D1C1136
+ key 7 15435C5E4A87D1C1136
 !
 banner login 
 ##########################################
