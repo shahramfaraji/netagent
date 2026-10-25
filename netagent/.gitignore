@@ -4,3 +4,6 @@ __pycache__/
 data/
 *.egg-info/
 .env
+
+# Local vendor source archives (keep out of version control)
+standards/_downloads/

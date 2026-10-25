@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-000366"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220639",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220639r539671_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "If any of the switch ports have fiber optic interconnections with neighbors, review the switch configuration to verify that UDLD is enabled globally or on a per-interface basis as shown in the examples below:\n\nhostname SW2\n…\n…\n…\nudld enable\n\nor\n\ninterface GigabitEthernet0/1\nudld port\n\nNote: An alternative implementation when UDLD is not supported by connected device is to deploy a single member Link Aggregation Group (LAG) via IEEE 802.3ad Link Aggregation Control Protocol (LACP).\n\nIf the switch has fiber optic interconnections with neighbors and UDLD is not enabled, this is a finding.",
+  "source_fix_text": "Configure the switch to enable UDLD to protect against one-way connections:\n\nSW2(config)#udld enable\n\nor\n\nSW2(config)#int g0/1\nSW2(config-if)#udld port",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_L2S_STIG",
+    "date": "24 Jul 2024",
+    "file": "U_Cisco_IOS_Switch_L2S_STIG_V3R1_Manual-xccdf.xml",
+    "release": "1",
+    "sha256": "735f6dcee089747118f598340ef1131cc94dd5c58ec36934f77b53a50b097abe",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "L2S",
+  "stig_id": "CISC-L2-000190",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must enable Unidirectional Link Detection (UDLD) to protect against one-way connections.",
+  "triage_classification": "manual_review"
+}

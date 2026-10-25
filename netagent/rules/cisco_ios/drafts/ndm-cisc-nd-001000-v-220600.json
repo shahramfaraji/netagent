@@ -1,0 +1,43 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-001858",
+    "CCI-003831"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Configuration evidence may be machine-readable, but the check includes multiple commands, a configuration stanza, qualifications, or parsing complexity; human review is required before implementation.",
+  "control_id": "V-220600",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220600r991868_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the Cisco switch configuration to verify that it generates an alert for all audit failure events as shown in the example below:\n\nlogging trap critical\n\nNote: The parameter \"critical\" can replaced with a lesser severity level (i.e., error, warning, notice, informational). Informational is the default severity level; hence, if the severity level is configured to informational, the logging trap command will not be shown in the configuration.\n\nIf the Cisco switch is not configured to generate an alert for all audit failure events, this is a finding.",
+  "source_fix_text": "Configure the Cisco switch to send critical to emergency log messages to the syslog server as shown in the example below:\n\nSW4(config)#logging trap critical\n\nNote: The parameter \"critical\" can replaced with a lesser severity level (i.e., error, warning, notice, informational).",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-001000",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to generate an alert for all audit failure events.",
+  "triage_classification": "semi_automated"
+}

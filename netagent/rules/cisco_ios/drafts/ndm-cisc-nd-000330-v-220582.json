@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-000135"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Configuration evidence may be machine-readable, but the check includes multiple commands, a configuration stanza, qualifications, or parsing complexity; human review is required before implementation.",
+  "control_id": "V-220582",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220582r1192878_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the Cisco switch configuration to verify that it generates audit records of configuration changes. The configuration example below will log all configuration changes:\n\narchive\nlog config\nlogging enable\n\nNote: Configuration changes can be viewed using the show archive log config all command.\n\nIf the Cisco switch is not configured to generate audit records of configuration changes, this is a finding.",
+  "source_fix_text": "Configure the Cisco switch to log all configuration changes as shown in the example below:\n\nSW4(config)#archive\nSW4(config-archive)#log config\nSW4(config-archive-log-cfg)#logging enable\nSW4(config-archive-log-cfg)#logging size 1000\nSW4(config-archive-log-cfg)#notify syslog contenttype plaintext\nSW4(config-archive-log-cfg)#hidekeys\nSW4(config-archive-log-cfg)#end",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-000330",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to generate audit records containing the full-text recording of privileged commands.",
+  "triage_classification": "semi_automated"
+}

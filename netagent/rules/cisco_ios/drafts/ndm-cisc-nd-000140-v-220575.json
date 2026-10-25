@@ -1,0 +1,43 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-001368",
+    "CCI-004192"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220575",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220575r1137875_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the Cisco switch configuration to verify that administrative access to the switch is allowed only from hosts residing in the management network.\n\nStep 1: Verify that the line vty has an ACL inbound applied as shown in the example below:\n\nline vty 0 1\naccess-class MANAGEMENT_NET in\ntransport input ssh\n\nStep 2: Verify that the ACL permits only hosts from the management network to access the switch.\n\nip access-list extended MANAGEMENT_NET\npermit ip x.x.x.0 0.0.0.255 any\ndeny ip any any log-input\n\nIf the Cisco switch is not configured to enforce approved authorizations for controlling the flow of management information within the device based on control policies, this is a finding.",
+  "source_fix_text": "Configure the Cisco switch to restrict management access to specific IP addresses via SSH as shown in the example below:\n\nSW2(config)#ip access-list extended MANAGEMENT_NET\nSW2(config-ext-nacl)#permit x.x.x.0 0.0.0.255\nSW2(config-ext-nacl)#exit\nSW2(config)#line vty 0 1\nSW2(config-line)#transport input ssh\nSW2(config-line)#access-class MANAGEMENT_NET in\nSW2(config-line)#end",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-000140",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to enforce approved authorizations for controlling the flow of management information within the device based on control policies.",
+  "triage_classification": "manual_review"
+}

@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT III",
+  "cci": [
+    "CCI-000134"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220436",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220436r622190_rule",
+  "schema_version": 1,
+  "severity": "low",
+  "source_check_text": "Review all ACLs used to filter traffic and verify that packets being dropped at interfaces via an ACL are logged as shown in the configuration below:\n\nip access-list extended INGRESS_FILTER\npermit tcp any any established\npermit tcp any host x.11.1.5 eq www\npermit icmp host x.11.1.1 host x.11.1.2 echo\npermit icmp any any echo-reply\n…\n…\n…\ndeny ip any any log\n\nIf packets being dropped are not logged, this is a finding.",
+  "source_fix_text": "Configure ACLs to log packets that are dropped as shown in the example below:\n\nSW1(config)#ip access-list extended INGRESS_FILTER\n…\n…\n…\nSW1(config-ext-nacl)#deny ip any any log",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000200",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to log all packets that have been dropped at interfaces via an access control list (ACL).",
+  "triage_classification": "manual_review"
+}

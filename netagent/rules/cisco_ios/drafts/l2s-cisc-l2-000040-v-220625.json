@@ -1,0 +1,54 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-001095",
+    "CCI-004866"
+  ],
+  "check_strategy": {
+    "type": "config_line_present",
+    "line": "mls qos"
+  },
+  "classification_rationale": "Narrow heuristic candidate: one direct global IOS command and a binary finding statement; syntax, defaults, platform support, and fixtures still require validation.",
+  "control_id": "V-220625",
+  "evidence_requirements": [],
+  "fail_condition": {
+    "line_missing": "mls qos"
+  },
+  "fixture_status": "synthetic_created_pending_human_review",
+  "pass_condition": {
+    "line_present": "mls qos"
+  },
+  "remediation": "Review platform and software support, then enable QoS only through the approved change process: mls qos.",
+  "review_notes": [
+    "Pilot candidate only. The source Check is a direct global command check.",
+    "Do not approve for execution until command support is verified for each target family and software release.",
+    "Synthetic positive/negative fixtures are maintained under tests/fixtures/stig/cisco_ios/batch_01."
+  ],
+  "reviewer": null,
+  "rule_id": "SV-220625r991847_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the switch configuration to verify QoS has been enabled as shown below:\n\nmls qos\n\nIf QoS has not been enabled, this is a finding.",
+  "source_fix_text": "Enable QoS on the switch:\n\nSW1(config)#mls qos",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_L2S_STIG",
+    "date": "24 Jul 2024",
+    "file": "U_Cisco_IOS_Switch_L2S_STIG_V3R1_Manual-xccdf.xml",
+    "release": "1",
+    "sha256": "735f6dcee089747118f598340ef1131cc94dd5c58ec36934f77b53a50b097abe",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "L2S",
+  "stig_id": "CISC-L2-000040",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must manage excess bandwidth to limit the effects of packet-flooding types of denial-of-service (DoS) attacks.",
+  "triage_classification": "candidate_automated"
+}

@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-001849"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220599",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220599r961392_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Verify that the Cisco switch is configured with a logging buffer size. The configuration should look like the example below:\n\nlogging buffered xxxxxxxx informational\n\nIf a logging buffer size is not configured, this is a finding.\n\nIf the Cisco switch is not configured to allocate audit record storage capacity in accordance with organization-defined audit record storage requirements, this is a finding.",
+  "source_fix_text": "Configure the buffer size for logging as shown in the example below:\n\nSW2(config)#logging buffered xxxxxxxx informational",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-000980",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to allocate audit record storage capacity in accordance with organization-defined audit record storage requirements.",
+  "triage_classification": "manual_review"
+}

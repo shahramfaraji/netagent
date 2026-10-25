@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT I",
+  "cci": [
+    "CCI-001109"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220440",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220440r1137935_rule",
+  "schema_version": 1,
+  "severity": "high",
+  "source_check_text": "Review the switch configuration to verify that the inbound access control list (ACL) applied to all external interfaces is configured to allow specific ports and protocols and deny all other traffic.\n\nStep 1: Verify that an inbound ACL is applied to all external interfaces as shown in the example below:\n\ninterface GigabitEthernet0/2\nip address x.11.1.2 255.255.255.254\nip access-group EXTERNAL_ACL in\n\nStep 2: Review the inbound ACL to verify that it is configured to deny all other traffic that is not explicitly allowed.\n\nip access-list extended EXTERNAL_ACL\npermit tcp any any established\npermit icmp host x.11.1.1 host x.11.1.2 echo\npermit icmp host x.11.1.1 host x.11.1.2 echo-reply\n…\n…\n…\ndeny ip any any log-input\n\nIf the ACL is not configured to allow specific ports and protocols and deny all other traffic, this is a finding.\n\nIf the ACL is not configured inbound on all external interfaces, this is a finding.",
+  "source_fix_text": "Step 1: Configure an inbound ACL to deny all other traffic by default as shown in the example below:\n\nSW1(config)#ip access-list extended EXTERNAL_ACL\nSW1(config-ext-nacl)#permit tcp any any established\nSW1(config-ext-nacl)#permit icmp host x.11.1.1 host x.11.1.2 echo\nSW1(config-ext-nacl)#permit icmp host x.11.1.1 host x.11.1.2 echo-reply\n…\n…\n…\nSW1(config-ext-nacl)#deny ip any any log-input\n\nStep 2: Apply the ingress filter to all external interfaces.\n\nSW1(config)#int g0/2\nSW1(config-if)#ip access-group EXTERNAL_ACL in",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000240",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco perimeter switch must be configured to deny network traffic by default and allow network traffic by exception.",
+  "triage_classification": "manual_review"
+}

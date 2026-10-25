@@ -12,9 +12,10 @@ from .collector import ConfigStore, fetch, check_ssh_connection
 from .compliance import evaluate_detailed, load_rules, report_markdown
 from .credentials import get_credential
 from .discovery import discover
-from .deploy import apply_config, preview_config, rollback_config
+from .deploy import ApprovalResult, ApprovalStatus, apply_config, preview_config, redact_config, rollback_config
 from .models import load_inventory
 from .topology import build_graph, parse_neighbors, to_json, to_mermaid
+from .ssh import trust_host_key
 
 
 def cmd_discover(a) -> int:
@@ -25,6 +26,14 @@ def cmd_discover(a) -> int:
     text = json.dumps(rows, indent=2)
     Path(a.out).write_text(text, encoding="utf-8") if a.out else print(text)
     print(f"{len(rows)} host(s) with management ports open", file=sys.stderr)
+    return 0
+
+
+def cmd_trust_host_key(a) -> int:
+    if a.no_prompt or not sys.stdin.isatty():
+        raise RuntimeError("trust-on-first-use requires an interactive terminal; unknown hosts are rejected in non-interactive mode")
+    device = _selected_device(a.inventory, a.device)
+    print(trust_host_key(device, known_hosts=a.known_hosts))
     return 0
 
 
@@ -55,6 +64,9 @@ def cmd_backup(a) -> int:
             print(f"FAIL {exc}", file=sys.stderr)
             continue
         changed, _ = store.save(d.hostname, out["config"])
+        artifacts = {key: value for key, value in out.items() if key.startswith("routeros_")}
+        if artifacts:
+            store.save_artifacts(d.hostname, artifacts)
         if "neighbors" in out:
             (nbr_dir / f"{d.hostname}.txt").write_text(out["neighbors"], encoding="utf-8")
         print(f"{'CHANGED' if changed else 'same   '} {d.hostname}")
@@ -91,6 +103,10 @@ def cmd_apply(a) -> int:
         print(f"Candidate: {preview.candidate_lines} command(s), sha256={preview.candidate_sha256}")
         print("Candidate commands (preview only, not a simulated post-change config):")
         print(preview.diff)
+        if preview.risky_commands:
+            print("Management-risk commands (require exact allowlist entries and separate confirmation):")
+            for command in preview.risky_commands:
+                print(f"  {redact_config(command)}")
         return 0
 
     def approve(preview):
@@ -100,9 +116,21 @@ def cmd_apply(a) -> int:
         print("Candidate commands (preview only, not a simulated post-change config):")
         print(preview.diff)
         print(f"Verified backups: local {preview.local_backup}, device {preview.device_backup}")
-        return input(f"Type {preview.hostname} to approve this config change: ").strip() == preview.hostname
+        if input(f"Type {preview.hostname} to approve this config change: ").strip() != preview.hostname:
+            return ApprovalResult(ApprovalStatus.DECLINED)
+        risk_confirmed = False
+        if preview.risky_commands:
+            print("MANAGEMENT-RISK COMMANDS:")
+            for command in preview.risky_commands:
+                print(f"  {redact_config(command)}")
+            expected = f"RISK {preview.hostname}"
+            risk_confirmed = input(f"Type {expected} to confirm these management risks: ").strip() == expected
+            if not risk_confirmed:
+                return ApprovalResult(ApprovalStatus.DECLINED)
+        return ApprovalResult(ApprovalStatus.APPROVED, risk_confirmed=risk_confirmed)
 
-    result = apply_config(device, candidate, cred, store, approve=approve)
+    result = apply_config(device, candidate, cred, store, approve=approve,
+                          allow_risky_commands=a.allow_risky_command)
     print(result)
     return 2 if result.startswith("Approval declined") else 0
 
@@ -161,8 +189,12 @@ def cmd_audit(a) -> int:
             missing.append(d.hostname)
             print(f"missing config for {d.hostname}", file=sys.stderr)
             continue
+        artifacts = {
+            file.name[len("latest."):-len(".txt")]: file.read_text(encoding="utf-8")
+            for file in p.parent.glob("latest.routeros_*.txt")
+        }
         findings, unknowns, evaluated = evaluate_detailed(
-            d.hostname, d.platform, p.read_text(encoding="utf-8"), rules
+            d.hostname, d.platform, p.read_text(encoding="utf-8"), rules, artifacts=artifacts
         )
         results[d.hostname] = findings
         unknown_results[d.hostname] = unknowns
@@ -177,7 +209,9 @@ def cmd_audit(a) -> int:
     has_unknown = any(unknown_results.values())
     if missing:
         return 1
-    if a.fail_on_high and (worst or has_unknown):
+    if has_unknown and not a.allow_unknown:
+        return 3
+    if a.fail_on_high and worst:
         return 2
     return 0
 
@@ -191,6 +225,13 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("discover", help="scan a CIDR for management ports")
     s.add_argument("cidr"); s.add_argument("--out")
     s.set_defaults(func=cmd_discover)
+
+    s = sub.add_parser("trust-host-key", help="interactively verify and pin one SSH host key")
+    s.add_argument("--inventory", required=True)
+    s.add_argument("--device", required=True, help="exact inventory hostname; one device per invocation")
+    s.add_argument("--known-hosts", help="known_hosts file (default: NETAGENT_KNOWN_HOSTS or data/known_hosts)")
+    s.add_argument("--no-prompt", action="store_true", help="forbidden for trust-on-first-use; fails closed")
+    s.set_defaults(func=cmd_trust_host_key)
 
     s = sub.add_parser("test-ssh", help="test SSH login to one inventory device; no config commands")
     s.add_argument("--inventory", required=True)
@@ -216,6 +257,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--apply", action="store_true",
         help="enable live apply after preview, backup and typed confirmation",
     )
+    s.add_argument("--allow-risky-command", action="append", default=[], metavar="EXACT_LINE",
+                   help="allow an exact management-risk command line; still requires separate typed risk confirmation")
     s.set_defaults(func=cmd_apply)
 
     s = sub.add_parser("rollback", help="preview or restore the latest applied config snapshot")
@@ -234,7 +277,8 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("audit", help="check configs against rules")
     s.add_argument("--rules", required=True); s.add_argument("--inventory", required=True)
     s.add_argument("--configs", default="data/configs"); s.add_argument("--out")
-    s.add_argument("--fail-on-high", action="store_true")
+    s.add_argument("--fail-on-high", action="store_true", help="return exit code 2 for critical/high findings")
+    s.add_argument("--allow-unknown", action="store_true", help="exit 0/2 even if one or more checks are UNKNOWN")
     s.set_defaults(func=cmd_audit)
     return p
 

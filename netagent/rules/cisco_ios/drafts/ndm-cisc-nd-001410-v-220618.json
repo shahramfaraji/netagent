@@ -1,0 +1,43 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-000366",
+    "CCI-000537"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "No sufficiently clear single-command configuration-only pattern was identified; human review is required.",
+  "control_id": "V-220618",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220618r1069531_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the Cisco switch configuration to verify that it backs up the configuration when changes occur. The example configuration below will send the configuration to a SCP server when a configuration change occurs:\n\nevent manager applet BACKUP_CONFIG\nevent syslog pattern \"%SYS-5-CONFIG_I\"\naction 1 info type switchname\naction 2 cli command \"enable\"\naction 3 cli command \"copy run scp\" pattern \"remote host\"\naction 4 cli command \"x.x.x.x\" pattern \"filename\"\naction 5 cli command \"$_info_switchname-config\"\naction 6 syslog priority informational msg \"Configuration backup was executed\"\n\nIf the Cisco switch is not configured to conduct backups of the configuration when changes occur, this is a finding.",
+  "source_fix_text": "Configure the Cisco switch to send the configuration to a SCP server when a configuration change occurs as shown in the example below:\n\nSW4(config)#event manager applet BACKUP_CONFIG\nSW4(config-applet)#event syslog pattern \"%SYS-5-CONFIG_I\"\nSW4(config-applet)#action 1 cli command \"enable\"\nSW4(config-applet)#action 2 info type switchname\nSW4(config-applet)#action 3 cli command \"copy run scp\" pattern \"remote host\"\nSW4(config-applet)#action 4 cli command \"x.x.x.x\" pattern \"filename\"\nSW4(config-applet)#action 5 cli command \"$_info_switchname-config\"\nSW4(config-applet)#action 6 syslog priority informational msg \"Configuration backup was executed\"\nSW4(config-applet)#end",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-001410",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to support organizational requirements to conduct backups of the configuration when changes occur.",
+  "triage_classification": "manual_review"
+}

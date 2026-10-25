@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-000044"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Configuration evidence may be machine-readable, but the check includes multiple commands, a configuration stanza, qualifications, or parsing complexity; human review is required before implementation.",
+  "control_id": "V-220576",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220576r960840_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the Cisco switch configuration to verify that it enforces the limit of three consecutive invalid logon attempts as shown in the example below:\n\nlogin block-for 900 attempts 3 within 120\n\nNote: The configuration example above will block any logon attempt for 15 minutes after three consecutive invalid logon attempts within a two-minute period.\n\nIf the Cisco switch is not configured to enforce the limit of three consecutive invalid logon attempts, this is a finding.",
+  "source_fix_text": "Configure the Cisco switch to enforce the limit of three consecutive invalid logon attempts as shown in the example below:\n\nSW2(config)#login block-for 900 attempts 3 within 120",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-000150",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to enforce the limit of three consecutive invalid logon attempts, after which time it must lock out the user account from accessing the device for 15 minutes.",
+  "triage_classification": "semi_automated"
+}

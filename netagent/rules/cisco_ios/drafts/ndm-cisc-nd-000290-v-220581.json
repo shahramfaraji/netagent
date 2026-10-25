@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-000132"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220581",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220581r960897_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the deny statements in all interface ACLs to determine if the log-input parameter has been configured as shown in the example below.\nNote: log-input can only apply to interface bound ACLs.\n\nip access-list extended BLOCK_INBOUND\ndeny icmp any any log-input\n\nIf the switch is not configured with the log-input parameter after any deny statements to note where packets have been dropped via an ACL, this is a finding.",
+  "source_fix_text": "Configure the log-input parameter after any deny statements to provide the location as to where packets have been dropped via an ACL:\n\nSW1(config)#ip access-list extended BLOCK_INBOUND\nSW1(config-ext-nacl)#deny icmp any any log-input",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-000290",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must produce audit records containing information to establish where the events occurred.",
+  "triage_classification": "manual_review"
+}

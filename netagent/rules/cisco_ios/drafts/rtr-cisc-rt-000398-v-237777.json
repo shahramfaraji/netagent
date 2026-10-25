@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-002403"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-237777",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-237777r1132528_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "This requirement is not applicable for the DODIN Backbone.\n\nReview the switch configuration to determine if it is compliant with this requirement.\n\nStep 1: Verify that an inbound IPv6 ACL has been configured on the external interface.\n\ninterface gigabitethernet1/0\nipv6 address 2001::1:0:22/64\nipv6 traffic-filter FILTER_IPV6 in\n\nStep 2: Verify that the ACL drops IPv6 packets containing a Destination Option header as shown in the example below.\n\nipv6 access-list FILTER_IPV6\ndeny 60 any any dest-option log\ndeny hbh any any dest-option log\npermit ipv6 …\n…\n…\n…\ndeny ipv6 any any log\n\nNote: Cisco has deprecated the dest-option-type command used to filter by option type within the Destination Option and Hop-by-Hop header. Therefore, all packets with the Destination Option header and Hop-by-Hop options must be dropped.\n\nIf the switch is not configured to drop IPv6 packets containing a Destination Option header, this is a finding.",
+  "source_fix_text": "Configure the switch to drop all inbound IPv6 packets containing destination option type values regardless of whether they appear in a Hop-by-Hop or Destination Option header as shown in the example below.\n\nSW1(config)#ipv6 access-list FILTER_IPV6\nSW1(config-ipv6-acl)#deny 60 any any dest-option log\nSW1(config-ipv6-acl)#deny hbh any any dest-option log\nSW1(config-ipv6-acl)#permit …\n…\n…\n…\nSW1(config-ipv6-acl)#deny ipv6 any any log\nSW1(config-ipv6-acl)#exit\nSW1(config)#int g1/0\nSW1(config-if)#ipv6 traffic-filter FILTER_IPV6\nSW1(config-if)#end",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000398",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco perimeter switch must be configured to drop IPv6 packets containing a Hop-by-Hop or Destination Option extension header with an undefined option type.",
+  "triage_classification": "manual_review"
+}

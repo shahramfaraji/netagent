@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-001097"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220452",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220452r945857_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Verify that the perimeter switch of the managed network is configured with an outbound ACL on the egress interface to block all management traffic as shown in the example below:\n\nStep 1: Verify that all external interfaces has been configured with an outbound ACL as shown in the example below:\n\ninterface GigabitEthernet0/2\ndescription link to DISN\nip address x.11.1.2 255.255.255.254\nip access-group EXTERNAL_ACL_OUTBOUND out\n\nStep 2: Verify that the outbound ACL discards management traffic as shown in the example below:\n\nip access-list extended EXTERNAL_ACL_OUTBOUND\ndeny tcp any any eq tacacs log-input\ndeny tcp any any eq 22 log-input\ndeny udp any any eq snmp log-input\ndeny udp any any eq snmptrap log-input\ndeny udp any any eq syslog log-input\npermit tcp any any eq www log-input\ndeny ip any any log-input\n\nIf management traffic is not blocked at the perimeter, this is a finding.",
+  "source_fix_text": "Configure the perimeter switch of the managed network with an outbound ACL on the egress interface to block all management traffic.\n\nStep 1: Configure an ACL to block egress management traffic.\n\nSW1(config)#ip access-list extended EXTERNAL_ACL_OUTBOUND\nSW1(config-ext-nacl)#deny tcp any any eq tacacs log-input\nSW1(config-ext-nacl)#deny tcp any any eq 22 log-input\nSW1(config-ext-nacl)#deny udp any any eq snmp log-input\nSW1(config-ext-nacl)#deny udp any any eq snmptrap log-input\nSW1(config-ext-nacl)#deny udp any any eq syslog log-input\nSW1(config-ext-nacl)#permit tcp any any eq www\nSW1(config-ext-nacl)#deny ip any any log-input\nSW1(config-ext-nacl)#exit\n\nNote: Permit commands would be configured to allow applicable outbound traffic. The example above is allowing web traffic.\n\nStep 2: Configure the external interfaces with the outbound ACL.\n\nSW1(config)#int g0/2\nSW1(config-if)#ip access-group EXTERNAL_ACL_OUTBOUND out",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000390",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco perimeter switch must be configured to block all outbound management traffic.",
+  "triage_classification": "manual_review"
+}

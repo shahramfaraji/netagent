@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-000366"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Configuration evidence may be machine-readable, but the check includes multiple commands, a configuration stanza, qualifications, or parsing complexity; human review is required before implementation.",
+  "control_id": "V-220638",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220638r539671_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "In cases where VLANs do not span multiple switches, it is a best practice to not implement STP. Avoiding the use of STP will provide the most deterministic and highly available network topology. If STP is required, review the switch configuration to verify that Rapid STP has been implemented:\n\nhostname SW2\n…\n…\n…\nspanning-tree mode rapid-pvst\n\nNote: MSTP can be configured as an alternate mode. MSTP uses RSTP for rapid convergence and enables multiple VLANs to be grouped into and mapped to the same spanning-tree instance, thereby reducing the number of spanning-tree instances needed to support a large number of VLANs.\n\nIf either RSTP or MSTP has not been implemented where STP is required, this is a finding.",
+  "source_fix_text": "Configure Rapid STP or MSTP to be implemented at the access and distribution layers where VLANs span multiple switches as shown in the examples below:\n\nSW2(config)#spanning-tree mode rapid-pvst\n\nor\n\nSW1(config)#spanning-tree mode mst",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_L2S_STIG",
+    "date": "24 Jul 2024",
+    "file": "U_Cisco_IOS_Switch_L2S_STIG_V3R1_Manual-xccdf.xml",
+    "release": "1",
+    "sha256": "735f6dcee089747118f598340ef1131cc94dd5c58ec36934f77b53a50b097abe",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "L2S",
+  "stig_id": "CISC-L2-000180",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must implement Rapid Spanning Tree Protocol (STP) where VLANs span multiple switches with redundant links.",
+  "triage_classification": "semi_automated"
+}

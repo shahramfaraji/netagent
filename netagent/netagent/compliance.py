@@ -10,6 +10,9 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
+from .routeros import check_rule as check_routeros_rule, merge_routeros_data
 
 SEVERITIES = ("critical", "high", "medium", "low")
 
@@ -24,6 +27,8 @@ class Rule:
     must_not_contain: list[str] = field(default_factory=list)
     remediation: str = ""
     scope_pattern: str = ""
+    check: str = ""
+    options: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.severity not in SEVERITIES:
@@ -32,7 +37,7 @@ class Rule:
             re.compile(pattern)
         if self.scope_pattern:
             re.compile(self.scope_pattern)
-        if not (self.must_contain or self.must_not_contain):
+        if not (self.must_contain or self.must_not_contain or self.check):
             raise ValueError(f"rule {self.id}: needs must_contain or must_not_contain")
 
 
@@ -64,14 +69,31 @@ def load_rules(path: str | Path) -> list[Rule]:
 
 
 def evaluate_detailed(
-    hostname: str, platform: str, config: str, rules: list[Rule]
+    hostname: str, platform: str, config: str, rules: list[Rule],
+    artifacts: dict[str, str] | None = None,
 ) -> tuple[list[Finding], list[Unknown], int]:
     """Return findings, unknown results, and number of applicable/evaluable rules."""
     findings: list[Finding] = []
     unknowns: list[Unknown] = []
     evaluated = 0
+    routeros_data = merge_routeros_data(config, artifacts) if platform == "mikrotik_routeros" else None
     for rule in rules:
         if rule.platforms and platform not in rule.platforms:
+            continue
+        if platform == "mikrotik_routeros":
+            if not rule.check:
+                unknowns.append(Unknown(
+                    hostname, rule.id, rule.description,
+                    "MikroTik rules must use a structured RouterOS check; regex-only evaluation is disabled",
+                ))
+                continue
+            status, detail = check_routeros_rule(rule.check, routeros_data or {}, config, rule.options)
+            if status == "unknown":
+                unknowns.append(Unknown(hostname, rule.id, rule.description, detail))
+            else:
+                evaluated += 1
+                if status == "finding":
+                    findings.append(Finding(hostname, rule.id, rule.severity, rule.description, detail, rule.remediation))
             continue
         if rule.scope_pattern and not re.search(rule.scope_pattern, config, re.M):
             unknowns.append(Unknown(

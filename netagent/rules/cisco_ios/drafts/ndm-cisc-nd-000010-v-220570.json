@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-000054"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220570",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220570r960735_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Note: This requirement is not applicable to file transfer actions such as FTP, SCP, and SFTP.\n\nReview the switch configuration to determine if concurrent management sessions are limited as show in the example below:\n\nip http secure-server\nip http max-connections 2\n…\n…\n…\n\nFor platforms that support the session-limit command:\n\nline vty 0 4\nsession-limit 2\ntransport input ssh\n\nFor platforms that do not support the session-limit command, the sessions can also be limited by reducing the number of active vty lines as shown in the example below:\n\nline vty 0 1\ntransport input ssh\nline vty 2 4\ntransport input none\n\nIf the switch is not configured to limit the number of concurrent management sessions, this is a finding.",
+  "source_fix_text": "Configure the switch to limit the number of concurrent management sessions to an organization-defined number as shown in the example below:\n\nSW4(config)#ip http max-connections 2\nSW4(config)#line vty 0 1\nSW4(config)#transport input ssh\nSW4(config)#line vty 2 4\nSW4(config)#transport input none",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-000010",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to limit the number of concurrent management sessions to an organization-defined number.",
+  "triage_classification": "manual_review"
+}

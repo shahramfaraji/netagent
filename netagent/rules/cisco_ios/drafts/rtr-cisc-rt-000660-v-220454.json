@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-001958"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "No sufficiently clear single-command configuration-only pattern was identified; human review is required.",
+  "control_id": "V-220454",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220454r864159_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "The Cisco switch is not compliant with this requirement; hence, it is a finding. However, the severity level can be downgraded to a CAT III if the switch is configured to authenticate targeted LDP sessions using MD5 as shown in the configuration example below:\n\nmpls ldp neighbor 10.1.1.2 password xxxxxxx\nmpls label protocol ldp\n\nIf the switch is not configured to authenticate targeted LDP sessions using MD5, the finding will remain as a CAT II.",
+  "source_fix_text": "The severity level can be downgraded to a CAT III if the switch is configured to authenticate targeted LDP sessions using MD5 as shown in the example below:\n\nSW1(config)#mpls ldp neighbor 10.1.1.2 password xxxxxxxx",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000660",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco PE switch providing MPLS Layer 2 Virtual Private Network (L2VPN) services must be configured to authenticate targeted Label Distribution Protocol (LDP) sessions used to exchange virtual circuit (VC) information using a FIPS-approved message authentication code algorithm.",
+  "triage_classification": "manual_review"
+}

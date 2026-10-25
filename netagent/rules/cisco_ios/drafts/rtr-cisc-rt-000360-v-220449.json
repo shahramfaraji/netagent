@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT III",
+  "cci": [
+    "CCI-002403"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220449",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220449r856240_rule",
+  "schema_version": 1,
+  "severity": "low",
+  "source_check_text": "Step 1: Verify LLDP is not enabled globally via the command.\n\nlldp run\n\nBy default, LLDP is not enabled globally. If LLDP is enabled, proceed to Step 2.\n\nStep 2: Verify LLDP is not enabled on any external interface as shown in the example below:\n\ninterface GigabitEthernet0/1\nip address x.1.12.1 255.255.255.252\nno lldp transmit\n\nNote: LLDP is enabled by default on all interfaces once it is enabled globally; hence the command \"lldp transmit\" will not be visible on the interface configuration.\n\nIf LLDP transmit is enabled on any external interface, this is a finding.",
+  "source_fix_text": "Disable LLDP transmit on all external interfaces as shown in the example below:\n\nSW1(config)#int g0/1\nSW1(config-if)#no lldp transmit",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000360",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco perimeter switch must be configured to have Link Layer Discovery Protocol (LLDP) disabled on all external interfaces.",
+  "triage_classification": "manual_review"
+}

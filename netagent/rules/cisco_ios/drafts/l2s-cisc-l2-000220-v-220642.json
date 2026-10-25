@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-004891"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "No sufficiently clear single-command configuration-only pattern was identified; human review is required.",
+  "control_id": "V-220642",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220642r991849_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the switch configurations and verify that no access switch ports have been assigned membership to the default VLAN (i.e., VLAN 1). VLAN assignments can be verified via the show vlan command:\n\nSW1#show vlan\n\nVLAN Name Status Ports\n---- -------------------------------- --------- -------------------------------\n1 default active\n10 User VLAN active Gi0/3, Gi1/0, Gi1/1, Gi1/2\nGi1/3, Gi2/1\n20 Management VLAN active Gi0/2\n999 VLAN0999 active Gi2/0\n\nIf access switch ports are assigned to the default VLAN, this is a finding.",
+  "source_fix_text": "Remove the assignment of the default VLAN from all access switch ports.",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_L2S_STIG",
+    "date": "24 Jul 2024",
+    "file": "U_Cisco_IOS_Switch_L2S_STIG_V3R1_Manual-xccdf.xml",
+    "release": "1",
+    "sha256": "735f6dcee089747118f598340ef1131cc94dd5c58ec36934f77b53a50b097abe",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "L2S",
+  "stig_id": "CISC-L2-000220",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must not have the default VLAN assigned to any host-facing switch ports.",
+  "triage_classification": "manual_review"
+}

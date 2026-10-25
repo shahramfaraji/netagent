@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-004891"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "No sufficiently clear single-command configuration-only pattern was identified; human review is required.",
+  "control_id": "V-220643",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220643r991850_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the switch configuration and verify that the default VLAN is pruned from trunk links that do not require it:\n\nSW1#show interfaces trunk\n\nPort Mode Encapsulation Status Native vlan\nGi0/1 on 802.1q trunking 1\nGi0/2 on 802.1q trunking 1\n\nPort Vlans allowed on trunk\nGi0/1 1-998,1000-4094\nGi0/2 1-4094\n\nIf the default VLAN is not pruned from trunk links that should not be transporting frames for the VLAN, this is a finding.",
+  "source_fix_text": "Prune VLAN 1 from any trunk links as necessary:\n\nSW1(config)#int g0/2\nSW1(config-if)#switchport trunk allowed vlan except 1\n\nVerify that VLAN 1 is not allowed on the trunk link:\n\nSW1#show interfaces trunk\n\nPort Mode Encapsulation Status Native vlan\nGi0/1 on 802.1q trunking 1\nGi0/2 on 802.1q trunking 1\n\nPort Vlans allowed on trunk\nGi0/1 1-998,1000-4094\nGi0/2 2-4094",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_L2S_STIG",
+    "date": "24 Jul 2024",
+    "file": "U_Cisco_IOS_Switch_L2S_STIG_V3R1_Manual-xccdf.xml",
+    "release": "1",
+    "sha256": "735f6dcee089747118f598340ef1131cc94dd5c58ec36934f77b53a50b097abe",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "L2S",
+  "stig_id": "CISC-L2-000230",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must have the default VLAN pruned from all trunk ports that do not require it.",
+  "triage_classification": "manual_review"
+}

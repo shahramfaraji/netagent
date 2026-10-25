@@ -1,0 +1,43 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT I",
+  "cci": [
+    "CCI-001941",
+    "CCI-002890"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Configuration evidence may be machine-readable, but the check includes multiple commands, a configuration stanza, qualifications, or parsing complexity; human review is required before implementation.",
+  "control_id": "V-220607",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220607r1056197_rule",
+  "schema_version": 1,
+  "severity": "high",
+  "source_check_text": "Review the Cisco switch configuration to verify that it uses FIPS-validated HMAC to protect the integrity of remote maintenance sessions as shown in the example below:\n\nNOTE: Although allowed by NIST SP 800-131A Rev. 2 for some applications, SHA-1 is considered a compromised hashing standard and is being phased out of use by industry and government standards. Unless required for legacy use, DOD systems should not be configured to use SHA-1 for integrity of remote access sessions.\n\nSSH Example\n\nip ssh version 2\niip ssh server algorithm mac hmac-sha2-512 hmac-sha2-256\n\nIf the Cisco switch is not configured to use FIPS-validated HMAC to protect the integrity of remote maintenance sessions, this is a finding.",
+  "source_fix_text": "Configure SSH to use FIPS-validated HMAC for remote maintenance sessions as shown in the following example:\n\nSSH Example\n\nSW1(config)#ip ssh version 2\nSW1(config)#iip ssh server algorithm mac hmac-sha2-512 hmac-sha2-256",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-001200",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to use FIPS-validated Keyed-Hash Message Authentication Code (HMAC) to protect the integrity of remote maintenance sessions.",
+  "triage_classification": "semi_automated"
+}

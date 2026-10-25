@@ -1,85 +1,25 @@
 {
   "rules": [
-    {
-      "id": "MT-SERVICE-FTP",
-      "description": "FTP management service is enabled",
-      "severity": "high",
-      "platforms": ["mikrotik_routeros"],
-      "scope_pattern": "(?m)^/ip service$",
-      "must_not_contain": ["(?s)^/ip service$\\n(?:(?!^/).)*^set ftp disabled=no\\b"],
-      "remediation": "If FTP is not required, disable it: /ip service set ftp disabled=yes"
-    },
-    {
-      "id": "MT-SERVICE-TELNET",
-      "description": "Telnet management service is enabled",
-      "severity": "high",
-      "platforms": ["mikrotik_routeros"],
-      "scope_pattern": "(?m)^/ip service$",
-      "must_not_contain": ["(?s)^/ip service$\\n(?:(?!^/).)*^set telnet disabled=no\\b"],
-      "remediation": "If Telnet is not required, disable it and use SSH: /ip service set telnet disabled=yes"
-    },
-    {
-      "id": "MT-SERVICE-WWW",
-      "description": "HTTP web management service is enabled",
-      "severity": "medium",
-      "platforms": ["mikrotik_routeros"],
-      "scope_pattern": "(?m)^/ip service$",
-      "must_not_contain": ["(?s)^/ip service$\\n(?:(?!^/).)*^set www disabled=no\\b"],
-      "remediation": "If web management is not required, disable it: /ip service set www disabled=yes"
-    },
-    {
-      "id": "MT-SERVICE-API",
-      "description": "API management service is enabled",
-      "severity": "medium",
-      "platforms": ["mikrotik_routeros"],
-      "scope_pattern": "(?m)^/ip service$",
-      "must_not_contain": ["(?s)^/ip service$\\n(?:(?!^/).)*^set api disabled=no\\b"],
-      "remediation": "If API is not required, disable it: /ip service set api disabled=yes"
-    },
-    {
-      "id": "MT-SERVICE-API-SSL",
-      "description": "API-SSL management service is enabled",
-      "severity": "medium",
-      "platforms": ["mikrotik_routeros"],
-      "scope_pattern": "(?m)^/ip service$",
-      "must_not_contain": ["(?s)^/ip service$\\n(?:(?!^/).)*^set api-ssl disabled=no\\b"],
-      "remediation": "If API-SSL is not required, disable it: /ip service set api-ssl disabled=yes"
-    },
-    {
-      "id": "MT-PPTP-ENABLED",
-      "description": "PPTP VPN server is enabled; PPTP is considered insecure",
-      "severity": "high",
-      "platforms": ["mikrotik_routeros"],
-      "scope_pattern": "(?m)^/interface pptp-server server$",
-      "must_not_contain": ["(?s)^/interface pptp-server server$\\n(?:(?!^/).)*^set .*\\benabled=yes\\b"],
-      "remediation": "Prefer a modern VPN protocol; plan and test migration before disabling PPTP"
-    },
-    {
-      "id": "MT-NTP-CONFIGURED",
-      "description": "RouterOS NTP client server is configured",
-      "severity": "low",
-      "platforms": ["mikrotik_routeros"],
-      "scope_pattern": "(?m)^/system ntp client servers$",
-      "must_contain": ["(?s)^/system ntp client servers$\\n(?:(?!^/).)*^add .*\\baddress=\\S+"],
-      "remediation": "Configure an approved NTP server under /system ntp client servers"
-    },
-    {
-      "id": "MT-REMOTE-SYSLOG",
-      "description": "Remote syslog action is configured",
-      "severity": "medium",
-      "platforms": ["mikrotik_routeros"],
-      "scope_pattern": "(?m)^/system logging action$",
-      "must_contain": ["(?s)^/system logging action$\\n(?:(?!^/).)*^add .*\\btarget=remote\\b.*\\bremote=\\S+"],
-      "remediation": "Configure a remote logging action and route the required topics to it"
-    },
-    {
-      "id": "MT-SNMP-ENABLED",
-      "description": "SNMP service is enabled",
-      "severity": "medium",
-      "platforms": ["mikrotik_routeros"],
-      "scope_pattern": "(?m)^/snmp$",
-      "must_not_contain": ["(?s)^/snmp$\\n(?:(?!^/).)*^set .*\\benabled=yes\\b"],
-      "remediation": "Disable SNMP if not required; otherwise restrict access and use SNMPv3 where supported"
-    }
+    {"id":"MT-SERVICE-FTP","description":"FTP management service is enabled","severity":"high","platforms":["mikrotik_routeros"],"check":"service_ftp_enabled","remediation":"If FTP is not required, disable it: /ip service set ftp disabled=yes"},
+    {"id":"MT-SERVICE-TELNET","description":"Telnet management service is enabled","severity":"high","platforms":["mikrotik_routeros"],"check":"service_telnet_enabled","remediation":"If Telnet is not required, disable it and use SSH: /ip service set telnet disabled=yes"},
+    {"id":"MT-SERVICE-WWW","description":"HTTP web management service is enabled","severity":"medium","platforms":["mikrotik_routeros"],"check":"service_www_enabled","remediation":"If web management is not required, disable it: /ip service set www disabled=yes"},
+    {"id":"MT-SERVICE-API","description":"API management service is enabled","severity":"medium","platforms":["mikrotik_routeros"],"check":"service_api_enabled","remediation":"If API is not required, disable it: /ip service set api disabled=yes"},
+    {"id":"MT-SERVICE-API-SSL","description":"API-SSL management service is enabled","severity":"medium","platforms":["mikrotik_routeros"],"check":"service_api_ssl_enabled","remediation":"If API-SSL is not required, disable it: /ip service set api-ssl disabled=yes"},
+    {"id":"MT-PPTP-ENABLED","description":"PPTP VPN server is enabled; PPTP is considered insecure","severity":"high","platforms":["mikrotik_routeros"],"check":"pptp_enabled","remediation":"Prefer a modern VPN protocol; plan and test migration before disabling PPTP"},
+    {"id":"MT-NTP-CONFIGURED","description":"RouterOS NTP client server is configured","severity":"low","platforms":["mikrotik_routeros"],"check":"ntp_configured","remediation":"Configure an approved NTP server"},
+    {"id":"MT-REMOTE-SYSLOG","description":"Remote syslog action is configured and referenced by a logging rule","severity":"medium","platforms":["mikrotik_routeros"],"check":"remote_syslog_action","remediation":"Configure a remote logging action and reference it from the required /system logging rules"},
+    {"id":"MT-SNMP-ENABLED","description":"SNMP service is enabled","severity":"medium","platforms":["mikrotik_routeros"],"check":"snmp_disabled","remediation":"Disable SNMP if not required; otherwise restrict access and use SNMPv3 where supported"},
+    {"id":"MT-DEFAULT-ADMIN","description":"Default admin account is present","severity":"high","platforms":["mikrotik_routeros"],"check":"default_admin_user","remediation":"Create and verify a named administrator before disabling or removing the default admin account"},
+    {"id":"MT-ADMIN-PASSWORD-POLICY","description":"Admin password strength/policy cannot be verified without exposing secrets","severity":"medium","platforms":["mikrotik_routeros"],"check":"admin_password_policy","remediation":"Verify administrator credentials and organizational password controls through an approved secure process; do not export passwords"},
+    {"id":"MT-SSH-STRONG-CRYPTO","description":"SSH strong-crypto is enabled","severity":"medium","platforms":["mikrotik_routeros"],"check":"ssh_strong_crypto","remediation":"Enable strong-crypto after checking client compatibility"},
+    {"id":"MT-MAC-SERVER-SCOPE","description":"MAC server is restricted to a management interface list","severity":"medium","platforms":["mikrotik_routeros"],"check":"mac_server_scope","remediation":"Restrict MAC server to a dedicated management interface list"},
+    {"id":"MT-MAC-WINBOX-SCOPE","description":"MAC Winbox is restricted to a management interface list","severity":"medium","platforms":["mikrotik_routeros"],"check":"mac_winbox_scope","remediation":"Restrict MAC Winbox to a dedicated management interface list"},
+    {"id":"MT-NEIGHBOR-DISCOVERY-SCOPE","description":"Neighbor discovery is restricted to a management interface list","severity":"low","platforms":["mikrotik_routeros"],"check":"neighbor_discovery_scope","remediation":"Restrict neighbor discovery to a dedicated management interface list"},
+    {"id":"MT-SSH-ADDRESS","description":"SSH service lacks an address restriction","severity":"high","platforms":["mikrotik_routeros"],"check":"service_ssh_address","remediation":"Restrict SSH service address to approved management subnets"},
+    {"id":"MT-WINBOX-ADDRESS","description":"Winbox service lacks an address restriction","severity":"high","platforms":["mikrotik_routeros"],"check":"service_winbox_address","remediation":"Restrict Winbox service address to approved management subnets"},
+    {"id":"MT-INPUT-FINAL-DROP","description":"Input firewall chain has an enabled final drop rule","severity":"high","platforms":["mikrotik_routeros"],"check":"input_final_drop","remediation":"Review input-chain rule order and add an explicit final drop after required management allowances"},
+    {"id":"MT-DNS-REMOTE-REQUESTS","description":"Router DNS resolver accepts remote requests","severity":"high","platforms":["mikrotik_routeros"],"check":"dns_remote_requests","remediation":"Disable allow-remote-requests unless this router is an intentionally scoped DNS resolver"},
+    {"id":"MT-BANDWIDTH-TEST-SERVER","description":"Bandwidth-test server is enabled","severity":"medium","platforms":["mikrotik_routeros"],"check":"bandwidth_test_server","remediation":"Disable the bandwidth-test server unless operationally required and access-restricted"},
+    {"id":"MT-MINIMUM-VERSION","description":"RouterOS version meets the configured minimum","severity":"high","platforms":["mikrotik_routeros"],"check":"minimum_version","options":{"minimum_version":""},"remediation":"Plan a tested upgrade to the organization's approved RouterOS minimum version"}
   ]
 }

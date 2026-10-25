@@ -1,0 +1,43 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-000803",
+    "CCI-002205"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220423",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220423r929046_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the switch configuration using the configuration examples below for BGP and OSPF.\n\nEIGRP, RIP, and IS-IS only support MD5 and will incur a permanent finding for those protocols.\n\nNote: The 180-day key lifetime is Not Applicable for the DODIN Backbone. The remainder of the requirement still applies.\n\nVerify that neighbor router authentication is enabled for all routing protocols. If neighbor authentication is not enabled this is a finding.\n\nVerify that authentication is configured to use FIPS 198-1 message authentication algorithms. If the routing protocol authentication is not configured to use FIPS 198-1 algorithms this is a finding.\n\nVerify that the protocol key lifetime is configured to not exceed 180 days. If any protocol key lifetime is configured to exceed 180 days this is a finding.\n\nBGP Example:\n\nkey chain tcp\nkey\nsend-id\nrecv-id\ncryptographic-algorithm hmac-sha256\nkey-string\naccept-lifetime 00:00:00 Jan 1 2022 duration 180\nsend-lifetime 00:00:00 Jan 1 2022 duration 180\n!\n!\nrouter bgp\nno synchronization\nbgp log-neighbor-changes\nneighbor x.x.x.x remote-as\nneighbor x.x.x.x ao\n\nNote: TCP-AO is used to replace MD5 in BGP authentication.\n\nOSPF Example:\n\nkey chain OSPF_KEY_CHAIN\nkey 1\nkey-string xxxxxxx\nsend-lifetime 00:00:00 Jan 1 2018 23:59:59 Mar 31 2018\naccept-lifetime 00:00:00 Jan 1 2018 01:05:00 Apr 1 2018\ncryptographic-algorithm hmac-sha-256\nkey 2\nkey-string yyyyyyy\nsend-lifetime 00:00:00 Apr 1 2018 23:59:59 Jun 30 2018\naccept-lifetime 23:55:00 Mar 31 2018 01:05:00 Jul 1 2018\ncryptographic-algorithm hmac-sha-256\n…\n…\n…\ninterface GigabitEthernet0/1\nip address x.x.x.x 255.255.255.0\nip ospf authentication key-chain OSPF_KEY_CHAIN",
+  "source_fix_text": "Configure routing protocol authentication to use a NIST-validated FIPS 198-1 message authentication code algorithm with keys not exceeding 180 days of lifetime as shown in the examples.\n\nBGP Example:\n\nStep 1: Configure a keychain using a FIPS 198-1 algorithm with a key duration not exceeding 180 days.\n\nkey chain tcp\nkey\nsend-id\nrecv-id\ncryptographic-algorithm hmac-sha256\nkey-string\naccept-lifetime 00:00:00 Jan 1 2022 duration 180\nsend-lifetime 00:00:00 Jan 1 2022 duration 180\n!\n\nStep 2: Configure BGP autonomous system to use the keychain for authentication.\n\nrouter bgp\nno synchronization\nbgp log-neighbor-changes\nneighbor x.x.x.x remote-as\nneighbor x.x.x.x ao\n\nOSPF Example:\n\nStep 1: Configure a keychain using a FIPS 198-1 algorithm with a key duration not exceeding 180 days.\n\nkey chain OSPF_KEY_CHAIN\nkey 1\nkey-string xxxxxxx\nsend-lifetime 00:00:00 Jan 1 2018 23:59:59 Mar 31 2018\naccept-lifetime 00:00:00 Jan 1 2018 01:05:00 Apr 1 2018\ncryptographic-algorithm hmac-sha-256\nkey 2\nkey-string yyyyyyy\nsend-lifetime 00:00:00 Apr 1 2018 23:59:59 Jun 30 2018\naccept-lifetime 23:55:00 Mar 31 2018 01:05:00 Jul 1 2018\ncryptographic-algorithm hmac-sha-256\n\nStep 2: Configure OSPF to use the keychain for authentication.\n\ninterface GigabitEthernet0/1\nip address x.x.x.x 255.255.255.0\nip ospf authentication key-chain OSPF_KEY_CHAIN",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000050",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to enable routing protocol authentication using FIPS 198-1 algorithms with keys not exceeding 180 days of lifetime.",
+  "triage_classification": "manual_review"
+}

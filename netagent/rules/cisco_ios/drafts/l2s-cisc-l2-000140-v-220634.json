@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-002385"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220634",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220634r929009_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the switch configuration to verify IP Source Guard is enabled on all user-facing or untrusted access switch ports as shown in the example below:\n\ninterface GigabitEthernet0/0\nip verify source\n!\ninterface GigabitEthernet0/1\nip verify source\n…\n…\n…\ninterface GigabitEthernet0/9\nip verify source\n\nNote: The IP Source Guard feature depends on the entries in the DHCP snooping database or static IP-MAC-VLAN configuration commands to verify IP-to-MAC address bindings.\n\nIf the switch does not have IP Source Guard enabled on all untrusted access switch ports, this is a finding.",
+  "source_fix_text": "Configure the switch to have IP Source Guard enabled on all user-facing or untrusted access switch ports:\n\nSW2(config)#int range g0/0 - 9\nSW2(config-if-range)#ip verify source",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_L2S_STIG",
+    "date": "24 Jul 2024",
+    "file": "U_Cisco_IOS_Switch_L2S_STIG_V3R1_Manual-xccdf.xml",
+    "release": "1",
+    "sha256": "735f6dcee089747118f598340ef1131cc94dd5c58ec36934f77b53a50b097abe",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "L2S",
+  "stig_id": "CISC-L2-000140",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must have IP Source Guard enabled on all user-facing or untrusted access switch ports.",
+  "triage_classification": "manual_review"
+}

@@ -1,0 +1,43 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT I",
+  "cci": [
+    "CCI-000366",
+    "CCI-002605"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "No sufficiently clear single-command configuration-only pattern was identified; human review is required.",
+  "control_id": "V-220621",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220621r961863_rule",
+  "schema_version": 1,
+  "severity": "high",
+  "source_check_text": "Verify that the switch is in compliance with this requirement by having the switch administrator enter the following command:\n\nshow version\n\nVerify that the release is still supported by Cisco. All releases supported by Cisco can be found at:\n\nwww.cisco.com/c/en/us/support/ios-nx-os-software\n\nIf the switch is not running a supported release, this is a finding.",
+  "source_fix_text": "Upgrade the switch to a supported release.",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-001470",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be running an IOS release that is currently supported by Cisco Systems.",
+  "triage_classification": "manual_review"
+}

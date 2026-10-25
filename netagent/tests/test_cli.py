@@ -4,7 +4,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 from netagent.cli import main
-from netagent.deploy import ApplyPreview
+from netagent.deploy import ApprovalResult, ApplyPreview
 from netagent.credentials import Credential
 
 EX = Path(__file__).parent.parent / "examples"
@@ -59,8 +59,10 @@ class TestCLI(unittest.TestCase):
         preview = ApplyPreview("sw1", "cisco_ios", "+ description managed\n", "a" * 64, 2, "b" * 64, True,
                                "backup-local.cfg", "flash:netagent-123456abcdef-preapply.cfg")
 
-        def fake_apply(_device, _candidate, _cred, _store, approve):
-            return "Applied" if approve(preview) else "Approval declined; device was not modified."
+        def fake_apply(_device, _candidate, _cred, _store, approve, **kwargs):
+            decision = approve(preview)
+            approved = decision.approved if isinstance(decision, ApprovalResult) else bool(decision)
+            return "Applied" if approved else "Approval declined; device was not modified."
 
         output = StringIO()
         with patch("netagent.cli._require_interactive_approval"), \
@@ -97,6 +99,27 @@ class TestCLI(unittest.TestCase):
         live_apply.assert_not_called()
         self.assertIn("interactive terminal required", err.getvalue())
 
+    def test_audit_unknown_exits_three_unless_allow_unknown_is_set(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inventory = root / "inventory.json"
+            inventory.write_text(json.dumps({"devices": [{
+                "hostname": "r1", "host": "192.0.2.25", "platform": "mikrotik_routeros"
+            }]}), encoding="utf-8")
+            configs = root / "configs" / "r1"
+            configs.mkdir(parents=True)
+            (configs / "latest.cfg").write_text("# RouterOS 7.23.7\n/system identity\nset name=r1\n", encoding="utf-8")
+            rules = root / "rules.json"
+            rules.write_text(json.dumps({"rules": [{
+                "id": "MT-VERSION", "description": "minimum version", "severity": "high",
+                "platforms": ["mikrotik_routeros"], "check": "minimum_version",
+                "options": {"minimum_version": ""}
+            }]}), encoding="utf-8")
+            common = ["audit", "--rules", str(rules), "--inventory", str(inventory), "--configs", str(root / "configs")]
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                self.assertEqual(main(common), 3)
+                self.assertEqual(main(common + ["--allow-unknown"]), 0)
+
     def test_audit_fails_with_nonzero_code_when_all_configs_are_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "report.md"
@@ -111,6 +134,21 @@ class TestCLI(unittest.TestCase):
             self.assertIn("## Missing configurations", report)
             for hostname in ("core-sw1", "edge-r1", "fw1"):
                 self.assertIn(hostname, report)
+
+    def test_trust_host_key_fails_closed_without_interactive_terminal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            inventory = Path(tmp) / "inventory.json"
+            inventory.write_text(json.dumps({"devices": [{
+                "hostname": "lab-router", "host": "192.0.2.25", "platform": "mikrotik_routeros"
+            }]}), encoding="utf-8")
+            err = StringIO()
+            with patch("netagent.cli.trust_host_key") as trust, \
+                 patch("sys.stdin.isatty", return_value=False), \
+                 redirect_stdout(StringIO()), redirect_stderr(err):
+                rc = main(["trust-host-key", "--inventory", str(inventory), "--device", "lab-router"])
+            self.assertEqual(rc, 1)
+            trust.assert_not_called()
+            self.assertIn("requires an interactive terminal", err.getvalue())
 
     def test_test_ssh_targets_only_named_inventory_device(self):
         with tempfile.TemporaryDirectory() as tmp:

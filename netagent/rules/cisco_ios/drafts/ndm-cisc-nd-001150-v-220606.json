@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-001967"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Configuration evidence may be machine-readable, but the check includes multiple commands, a configuration stanza, qualifications, or parsing complexity; human review is required before implementation.",
+  "control_id": "V-220606",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220606r1156814_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the Cisco switch configuration to verify it authenticates NTP sources using authentication with FIPS-compliant algorithms as shown in the configuration example below:\n\nntp authentication-key 1 md5 xxxxxx\nntp authenticate\nntp trusted-key 1\nntp server x.x.x.x key 1\nntp server y.y.y.y key 1\n\nNote: Cisco IOS is limited to MD5 for NTP authentication, and incurs a permanent finding as it is not FIPS compliant. MD5 partially reduces the risk but cannot fully mitigate it.\n\nIf the Cisco switch is not configured to authenticate NTP sources using authentication with FIPS-compliant algorithms, this is a finding.",
+  "source_fix_text": "Configure the Cisco switch to authenticate NTP sources using authentication with FIPS-compliant algorithms as shown in the example below:\n\nSW2(config)#ntp authenticate\nSW2(config)#ntp authentication-key 1 md5 xxxxxx\nSW2(config)#ntp trusted-key 1\nSW2(config)#ntp server x.x.x.x key 1\nSW2(config)#ntp server y.y.y.y key 1",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-001150",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to authenticate Network Time Protocol (NTP) sources using authentication with FIPS-compliant algorithms.",
+  "triage_classification": "semi_automated"
+}

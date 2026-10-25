@@ -1,0 +1,53 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-002385"
+  ],
+  "check_strategy": {
+    "type": "config_line_present",
+    "line": "spanning-tree loopguard default"
+  },
+  "classification_rationale": "Pilot candidate after manual source-check review: one explicit global command is testable by exact line presence, but model/software support and STP-mode applicability remain unverified.",
+  "control_id": "V-220631",
+  "evidence_requirements": [],
+  "fail_condition": {
+    "line_missing": "spanning-tree loopguard default"
+  },
+  "fixture_status": "synthetic_created_pending_human_review",
+  "pass_condition": {
+    "line_present": "spanning-tree loopguard default"
+  },
+  "remediation": "Review platform/software support and topology requirements, then enable STP Loop Guard through the approved change process: spanning-tree loopguard default.",
+  "review_notes": [
+    "Pilot candidate only. The source Check explicitly names one global command.",
+    "The source title says STP Loop Guard must be enabled, but command support and interaction with the deployed STP mode must be verified for each target family and software release.",
+    "Do not approve for execution until applicability is verified. Synthetic positive/negative fixtures are maintained under tests/fixtures/stig/cisco_ios/batch_01."
+  ],
+  "reviewer": null,
+  "rule_id": "SV-220631r856225_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the switch configuration to verify that STP Loop Guard is enabled as shown in the configuration example below:\n\nhostname SW2\n…\n…\n…\nspanning-tree mode pvst\nspanning-tree loopguard default\n\nIf STP Loop Guard is not enabled, this is a finding.",
+  "source_fix_text": "Configure the switch to have STP Loop Guard enabled via the spanning-tree loopguard default global command.",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_L2S_STIG",
+    "date": "24 Jul 2024",
+    "file": "U_Cisco_IOS_Switch_L2S_STIG_V3R1_Manual-xccdf.xml",
+    "release": "1",
+    "sha256": "735f6dcee089747118f598340ef1131cc94dd5c58ec36934f77b53a50b097abe",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "L2S",
+  "stig_id": "CISC-L2-000110",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must have Spanning Tree Protocol (STP) Loop Guard enabled.",
+  "triage_classification": "semi_automated"
+}

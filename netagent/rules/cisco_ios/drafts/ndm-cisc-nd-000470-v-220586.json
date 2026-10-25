@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT I",
+  "cci": [
+    "CCI-000382"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Configuration evidence may be machine-readable, but the check includes multiple commands, a configuration stanza, qualifications, or parsing complexity; human review is required before implementation.",
+  "control_id": "V-220586",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220586r1043177_rule",
+  "schema_version": 1,
+  "severity": "high",
+  "source_check_text": "Verify that the switch does not have any unnecessary or nonsecure ports, protocols, and services enabled.\n\nFor example, the following commands should not be in the configuration:\n\nboot network\nip boot server\nip bootp server\nip dns server\nip identd\nip finger\nip http server\nip rcmd rcp-enable\nip rcmd rsh-enable\nservice config\nservice finger\nservice tcp-small-servers\nservice udp-small-servers\nservice pad\nservice call-home\n\nNote: Certain legacy devices may require 'service call-home' be enabled to support Smart Licensing as they do not support the newer smart transport configuration. Those devices do not incur a finding for having call-home enabled for Smart Licensing.\n\nIf any unnecessary or nonsecure ports, protocols, or services are enabled, this is a finding.",
+  "source_fix_text": "Disable the following services if enabled as shown in the example below:\n\nSW2(config)#no boot network\nSW2(config)#no ip boot server\nSW2(config)#no ip bootp server\nSW2(config)#no ip dns server\nSW2(config)#no ip identd\nSW2(config)#no ip finger\nSW2(config)#no ip http server\nSW2(config)#no ip rcmd rcp-enable\nSW2(config)#no ip rcmd rsh-enable\nSW2(config)#no service config\nSW2(config)#no service finger\nSW2(config)#no service tcp-small-servers\nSW2(config)#no service udp-small-servers\nSW2(config)#no service pad\nSW2(config)#no service call-home\nSW2(config)#end",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-000470",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to prohibit the use of all unnecessary and non-secure functions and services.",
+  "triage_classification": "semi_automated"
+}

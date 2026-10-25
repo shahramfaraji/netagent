@@ -1,0 +1,405 @@
+
+!
+! Last configuration change at 14:03:39 tehran Wed Aug 26 2026 by admin
+! NVRAM config last updated at 15:29:22 tehran Wed Aug 26 2026 by admin
+!
+version 15.2
+no service pad
+service timestamps debug datetime msec
+service timestamps log datetime msec
+service password-encryption
+!
+hostname SW1ACC-R4-Ed_Mazandaran
+!
+boot-start-marker
+boot-end-marker
+!
+enable secret 9 $9$aNWUc9HZmD.4ep$tE3woVW/sWae6LinTro4lf/1NGEVO3ZqWYLh5dqz7dI
+!
+username admin privilege 15 secret 9 $9$sTTL9qmpuAobt3$11sKLbbbMBM0Uom8UjjRPkd.NxZYczsKOzpFQ2fDNIc
+aaa new-model
+!
+!
+aaa group server radius ISE_RADIUS
+ server name ISE_RADIUS
+!
+aaa authentication login default group tacacs+ local
+aaa authentication dot1x default group ISE_RADIUS
+aaa authorization config-commands
+aaa authorization exec default group tacacs+ local 
+aaa authorization commands 0 default group tacacs+ local 
+aaa authorization commands 5 default group tacacs+ local 
+aaa authorization commands 15 default group tacacs+ local 
+aaa authorization network default group ISE_RADIUS 
+aaa accounting auth-proxy default start-stop group ISE_RADIUS
+aaa accounting dot1x default start-stop group ISE_RADIUS
+aaa accounting exec default start-stop group tacacs+
+aaa accounting commands 0 default start-stop group tacacs+
+aaa accounting commands 5 default start-stop group tacacs+
+aaa accounting commands 15 default start-stop group tacacs+
+aaa accounting network default start-stop group ISE_RADIUS
+!
+!
+!
+!
+!
+!
+aaa session-id common
+clock timezone tehran 3 30
+switch 1 provision ws-c2960x-24ts-l
+!
+!
+!
+!
+!
+!
+ip dhcp snooping vlan 1
+ip dhcp snooping
+ip domain-name Ed_Mazandaran.tamin.org
+!
+!
+!
+!
+!
+!
+!
+crypto pki trustpoint TP-self-signed-2253474304
+ enrollment selfsigned
+ subject-name cn=IOS-Self-Signed-Certificate-2253474304
+ revocation-check none
+ rsakeypair TP-self-signed-2253474304
+!
+!
+crypto pki certificate chain TP-self-signed-2253474304
+ certificate self-signed 01 nvram:IOS-Self-Sig#1.cer
+!
+spanning-tree mode rapid-pvst
+spanning-tree extend system-id
+spanning-tree vlan 1 priority 12288
+!
+!
+!
+!
+vlan internal allocation policy ascending
+!
+!
+! 
+!
+!
+!
+!
+!
+!
+!
+!
+interface FastEthernet0
+ no ip address
+ shutdown
+!
+interface GigabitEthernet1/0/1
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/2
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/3
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/4
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/5
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/6
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/7
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/8
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/9
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/10
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/11
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/12
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/13
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/14
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/15
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/16
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/17
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/18
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/19
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/20
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/21
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/22
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/23
+ switchport mode access
+ authentication event server dead action authorize 
+ authentication port-control auto
+ mab
+ no vtp
+ spanning-tree portfast edge
+ spanning-tree bpduguard enable
+ spanning-tree guard root
+ ip dhcp snooping limit rate 20
+!
+interface GigabitEthernet1/0/24
+ description Conneceted to SW1Core-R1-Ed_Mazandaran Gi 1/0/20
+ switchport mode trunk
+ ip dhcp snooping trust
+!
+interface GigabitEthernet1/0/25
+!
+interface GigabitEthernet1/0/26
+!
+interface GigabitEthernet1/0/27
+!
+interface GigabitEthernet1/0/28
+!
+interface Vlan1
+ ip address 172.29.0.46 255.255.255.0
+ ip helper-address 172.29.0.9 
+ no ip route-cache
+!
+ip default-gateway 172.29.0.1
+!
+no ip http server
+ip http secure-server
+!
+!
+!
+snmp-server group tamin v3 priv 
+tacacs-server host 10.16.1.38 key 7 00212B23067D1E2515784F4033360E3430201F09080F15756E
+!
+!
+radius server ISE_RADIUS
+ address ipv4 172.29.0.3 auth-port 1645 acct-port 1646
+ key 7 15435C5E4A78726A787D1C1136
+!
+banner login 
+##########################################
+#  This is a Login banner used to show   #
+#    legal and privacy information.      #
+#                                        #
+#     Unauthorized users prohibited      #
+##########################################
+
+!
+line con 0
+ timeout login response 300
+line vty 0 4
+ timeout login response 300
+ transport input ssh
+line vty 5 15
+ timeout login response 300
+ transport input ssh
+!
+ntp server 172.29.0.36 source Vlan1
+!
+end

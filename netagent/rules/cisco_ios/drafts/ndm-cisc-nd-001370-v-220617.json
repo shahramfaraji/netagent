@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT I",
+  "cci": [
+    "CCI-000370"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220617",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220617r1156817_rule",
+  "schema_version": 1,
+  "severity": "high",
+  "source_check_text": "Review the Cisco switch configuration to verify the device is configured to use at least two authentication servers as the primary source for authentication as shown in the example below:\n\naaa new-model\n!\naaa authentication CONSOLE group radius local\naaa authentication login LOGIN_AUTHENTICATION group radius local\n…\n…\n…\nip http authentication aaa login-authentication LOGIN_AUTHENTICATION\nip http secure-server\n…\n…\n…\nradius-server host x.x.x.x auth-port 1812 acct-port 1813 key xxxxxxx\nradius-server host x.x.x.x auth-port 1812 acct-port 1813 key xxxxxxx\n…\n…\n…\nline con 0\nexec-timeout 5 0\nlogin authentication CONSOLE\nline vty 0 1\nexec-timeout 5 0\nlogin authentication LOGIN_AUTHENTICATION\n\nIf the Cisco switch is not configured to use at least two authentication servers to authenticate users prior to granting administrative access, this is a finding.",
+  "source_fix_text": "Step 1: Configure the Cisco switch to use at least two authentication servers as shown in the example below:\n\nSW4(config)#radius host 10.1.48.2 key xxxxxx\nSW4(config)#radius host 10.1.48.3 key xxxxxx\n\nStep 2: Configure the authentication order to use the authentication servers as the primary source for authentication as shown in the example below:\n\nSW4(config)#aaa authentication CONSOLE group radius local\n\nSW4(config)#aaa authentication login LOGIN_AUTHENTICATION group radius local\n\nStep 3: Configure all network connections associated with device management to use the authentication servers for login authentication:\n\nSW4(config)#line vty 0 1\nSW4(config-line)#login authentication LOGIN_AUTHENTICATION\nSW4(config-line)#exit\nSW4(config)#line con 0\nSW4(config-line)#login authentication CONSOLE\nSW4(config-line)#exit\nSW4(config)#ip http authentication aaa login-authentication LOGIN_AUTHENTICATION",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-001370",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to use at least two authentication servers to authenticate users prior to granting administrative access.",
+  "triage_classification": "manual_review"
+}

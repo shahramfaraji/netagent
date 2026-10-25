@@ -14,8 +14,28 @@ from pathlib import Path
 from .credentials import Credential, quiet_transport_logs, redact
 from .deps import ensure_netmiko
 from .models import Device
+from .ssh import connection_params
 
 log = logging.getLogger(__name__)
+
+ROUTEROS_READ_ONLY_COMMANDS = {
+    "routeros_resource": "/system resource print",
+    "routeros_ip_service": "/ip service print detail without-paging",
+    "routeros_snmp": "/snmp print",
+    "routeros_ntp_client": "/system ntp client print",
+    "routeros_ntp_servers": "/system ntp client servers print detail without-paging",
+    "routeros_export_verbose": "/export verbose",
+    "routeros_user": "/user print detail without-paging",
+    "routeros_ip_ssh": "/ip ssh print detail without-paging",
+    "routeros_mac_server": "/tool mac-server print detail without-paging",
+    "routeros_mac_winbox": "/tool mac-server mac-winbox print detail without-paging",
+    "routeros_neighbor_discovery": "/ip neighbor discovery-settings print detail without-paging",
+    "routeros_ip_dns": "/ip dns print detail without-paging",
+    "routeros_bandwidth_server": "/tool bandwidth-server print detail without-paging",
+    "routeros_ip_firewall_filter": "/ip firewall filter print detail without-paging",
+    "routeros_logging_action": "/system logging action print detail without-paging",
+    "routeros_logging": "/system logging print detail without-paging",
+}
 
 SHOW_CONFIG = {
     "cisco_ios": "show running-config",
@@ -33,8 +53,11 @@ SHOW_NEIGHBORS = {
     "juniper_junos": "show lldp neighbors",
 }
 # Lines that change every fetch and would create noisy diffs
-VOLATILE = [re.compile(p) for p in (r"^! Last configuration change", r"^! NVRAM config last updated",
-                                     r"^ntp clock-period", r"^Current configuration :", r"^## Last commit")]
+VOLATILE = [re.compile(p, re.I) for p in (
+    r"^! Last configuration change", r"^! NVRAM config last updated",
+    r"^ntp clock-period", r"^Current configuration :", r"^## Last commit",
+    r"^#\s+(?:[A-Z][a-z]{2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}).*\bby RouterOS\b",
+)]
 
 
 def normalize(config: str) -> str:
@@ -42,7 +65,8 @@ def normalize(config: str) -> str:
     return "\n".join(ln for ln in lines if not any(v.match(ln) for v in VOLATILE)).strip() + "\n"
 
 
-def check_ssh_connection(device: Device, cred: Credential, timeout: int = 15) -> None:
+def check_ssh_connection(device: Device, cred: Credential, timeout: int = 15,
+                         known_hosts: str | Path | None = None) -> None:
     """Verify SSH authentication and prompt access without running configuration commands."""
     try:
         from netmiko import ConnectHandler  # optional dependency
@@ -51,11 +75,7 @@ def check_ssh_connection(device: Device, cred: Credential, timeout: int = 15) ->
             raise RuntimeError("netmiko not installed: pip install 'netagent[ssh]'") from exc
         from netmiko import ConnectHandler
 
-    params = dict(
-        device_type=device.platform, host=device.host, port=device.port,
-        username=cred.username, password=cred.password, secret=cred.secret,
-        timeout=timeout, auth_timeout=timeout, fast_cli=False,
-    )
+    params = connection_params(device, cred, timeout=timeout, known_hosts=known_hosts)
     try:
         with quiet_transport_logs(), ConnectHandler(**params) as conn:
             conn.find_prompt()
@@ -63,21 +83,23 @@ def check_ssh_connection(device: Device, cred: Credential, timeout: int = 15) ->
         raise RuntimeError(redact(f"{device.hostname}: {type(exc).__name__}: {exc}", cred)) from None
 
 
-def fetch(device: Device, cred: Credential, timeout: int = 30) -> dict[str, str]:
+def fetch(device: Device, cred: Credential, timeout: int = 30,
+          known_hosts: str | Path | None = None) -> dict[str, str]:
     try:
         from netmiko import ConnectHandler  # optional dependency
     except ImportError as exc:
         if not ensure_netmiko():
             raise RuntimeError("netmiko not installed: pip install 'netagent[ssh]'") from exc
         from netmiko import ConnectHandler
-    params = dict(device_type=device.platform, host=device.host, port=device.port,
-                  username=cred.username, password=cred.password, secret=cred.secret,
-                  timeout=timeout, auth_timeout=timeout, fast_cli=False)
+    params = connection_params(device, cred, timeout=timeout, known_hosts=known_hosts)
     try:
         with quiet_transport_logs(), ConnectHandler(**params) as conn:
             if cred.secret and device.platform.startswith("cisco"):
                 conn.enable()
             out = {"config": conn.send_command(SHOW_CONFIG[device.platform], read_timeout=timeout * 4)}
+            if device.platform == "mikrotik_routeros":
+                for key, command in ROUTEROS_READ_ONLY_COMMANDS.items():
+                    out[key] = conn.send_command(command, read_timeout=timeout * 2)
             if device.platform in SHOW_NEIGHBORS:
                 out["neighbors"] = conn.send_command(SHOW_NEIGHBORS[device.platform], read_timeout=timeout * 2)
             return out
@@ -157,6 +179,18 @@ class ConfigStore:
         if not isinstance(data, dict):
             raise ValueError("invalid deployment record")
         return data
+
+    def save_artifacts(self, hostname: str, artifacts: dict[str, str]) -> list[Path]:
+        """Persist supplementary command output beside the device's config snapshots."""
+        directory = self._dir(hostname)
+        written = []
+        for name, content in artifacts.items():
+            if not re.fullmatch(r"routeros_[a-z0-9_]+", name):
+                continue
+            path = directory / f"latest.{name}.txt"
+            self._write_private(path, content.rstrip() + "\n")
+            written.append(path)
+        return written
 
     def save(self, hostname: str, config: str, when: datetime | None = None) -> tuple[bool, str]:
         """Returns (changed, unified_diff)."""

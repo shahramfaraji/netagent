@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-002403"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220465",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220465r864161_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the configuration of the DR to verify that it is filtering IGMP or MLD report messages, allowing hosts to only join multicast groups from sources that have been approved.\n\nStep 1: Verify that all host-facing Layer 3 and VLAN interfaces are configured to filter IGMP Membership Report messages (IGMP joins) as shown in the example below:\n\ninterface Vlan3\nip address 10.3.3.3 255.255.255.0\nip pim sparse-mode\nip igmp access-group IGMP_JOIN_FILTER\nip igmp version 3\n\nStep 2: Verify that the ACL denies unauthorized sources or allows only authorized sources. The example below denies all groups from the 232.8.0.0/16 range and permits sources only from the x.0.0.0/8 network.\n\nip access-list extended IGMP_JOIN_FILTER\ndeny ip any 232.8.0.0 0.0.255.255\npermit ip x.0.0.0 0.255.255.255 any\ndeny ip any any\n\nNote: This requirement is only applicable to Source Specific Multicast (SSM) implementation.\n\nIf the DR is not filtering IGMP or MLD report messages, this is a finding.",
+  "source_fix_text": "Configure the DR to filter the IGMP and MLD report messages to allow hosts to join only multicast groups from sources that have been approved as shown in the example below:\n\nSW2(config)#ip access-list extended IGMP_JOIN_FILTER\nSW2(config-ext-nacl)#deny ip any 232.8.0.0 0.0.255.255\nSW2(config-ext-nacl)#permit ip x.0.0.0 0.255.255.255 any\nSW2(config-ext-nacl)#deny ip any any\nSW2(config-ext-nacl)#exit\n\nStep 2: Apply the filter to all host-facing Layer 3 and VLAN interfaces.\n\nSW2(config)#int vlan3\nSW2(config-if)#ip igmp access-group IGMP_JOIN_FILTER",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000870",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco multicast Designated switch (DR) must be configured to filter the Internet Group Management Protocol (IGMP) and Multicast Listener Discovery (MLD) Report messages to allow hosts to join a multicast group only from sources that have been approved by the organization.",
+  "triage_classification": "manual_review"
+}

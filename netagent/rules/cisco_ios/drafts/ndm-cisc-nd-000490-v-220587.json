@@ -1,0 +1,43 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-001358",
+    "CCI-002111"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220587",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220587r1051115_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Step 1: Review the Cisco switch configuration to verify that a local account for last resort has been configured with a privilege level that will enable the administrator to troubleshoot connectivity to the authentication server.\n\nusername xxxxxxxxxxx privilege 10 common-criteria-policy PASSWORD_POLICY password xxxxxxxxxx\n\nNote: The configured Common Criteria policy must be used when creating or changing the local account password as shown in the example above.\n\nStep 2: Verify that local is defined after radius or tacacs+ in the authentication order as shown in the example below:\n\naaa authentication login default group tacacs+ local\n\nIf the Cisco switch is not configured with only one local account to be used as the account of last resort in the event the authentication server is unavailable, this is a finding.",
+  "source_fix_text": "Step 1: Configure a local account with the necessary privilege level to troubleshoot network outage and restore operations as shown in the following example:\n\nSW2(config)#username xxxxxxxxxxx privilege 10 common-criteria-policy PASSWORD_POLICY password xxxxxxxxxx\n\nStep 2: Configure the authentication order to use the local account if the authentication server is not reachable as shown in the following example:\n\nSW2(config)#aaa authentication login default group tacacs+ local",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-000490",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured with only one local account to be used as the account of last resort in the event the authentication server is unavailable.",
+  "triage_classification": "manual_review"
+}

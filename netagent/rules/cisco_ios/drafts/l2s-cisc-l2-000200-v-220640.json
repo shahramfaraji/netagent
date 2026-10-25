@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-000366"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "No sufficiently clear single-command configuration-only pattern was identified; human review is required.",
+  "control_id": "V-220640",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220640r539671_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "By default, DTP is enabled on all Cisco switches. Review the switch configuration to verify that trunk links will not form a trunk via negotiation as shown in the example below:\n\nSW2#show interfaces switchport\nName: Gi0/0\nSwitchport: Enabled\nAdministrative Mode: dynamic auto\nOperational Mode: static access\nAdministrative Trunking Encapsulation: negotiate\nOperational Trunking Encapsulation: native\nNegotiation of Trunking: On\n\nIf trunk negotiation is enabled on any interface, this is a finding.",
+  "source_fix_text": "Configure the switch to enable trunk links statically as shown in the configuration below:\n\nSW2(config-if)#switchport trunk encapsulation dot1q\nSW2(config-if)#switchport mode trunk\nSW2(config-if)#switchport nonegotiate",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_L2S_STIG",
+    "date": "24 Jul 2024",
+    "file": "U_Cisco_IOS_Switch_L2S_STIG_V3R1_Manual-xccdf.xml",
+    "release": "1",
+    "sha256": "735f6dcee089747118f598340ef1131cc94dd5c58ec36934f77b53a50b097abe",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "L2S",
+  "stig_id": "CISC-L2-000200",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must have all trunk links enabled statically.",
+  "triage_classification": "manual_review"
+}

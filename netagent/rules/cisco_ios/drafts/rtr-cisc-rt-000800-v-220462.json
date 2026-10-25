@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-001414"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220462",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220462r1137911_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Step 1: Verify that all interfaces enabled for PIM have a neighbor access control list (ACL) bound to the interface as shown in the example below:\n\ninterface GigabitEthernet1/1\nno switchport\nip address 10.1.2.2 255.255.255.0\nip pim neighbor-filter PIM_NEIGHBORS\nip pim sparse-mode\n\nStep 2: Review the configured ACL for filtering PIM neighbors as shown in the example below:\n\nip access-list standard PIM_NEIGHBORS\npermit 10.1.2.6\n\nIf PIM neighbor ACLs are not bound to all interfaces that have PIM enabled, this is a finding.",
+  "source_fix_text": "Configure neighbor ACLs to only accept PIM control plane traffic from documented PIM neighbors. Bind neighbor ACLs to all PIM-enabled interfaces.\n\nStep 1: Configure ACL for PIM neighbors.\n\nSW2(config)#ip access-list standard PIM_NEIGHBORS\nSW2(config-std-nacl)#permit 10.1.2.6\nSW2(config-std-nacl)#exit\n\nStep 2: Apply the ACL to all interfaces enabled for PIM.\n\nSW2(config)#int g1/1\nSW2(config-if)#ip pim neighbor-filter PIM_NEIGHBORS",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000800",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco multicast switch must be configured to bind a Protocol Independent Multicast (PIM) neighbor filter to interfaces that have PIM enabled.",
+  "triage_classification": "manual_review"
+}

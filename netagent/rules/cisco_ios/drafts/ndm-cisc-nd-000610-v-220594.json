@@ -1,0 +1,43 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-000195",
+    "CCI-004066"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Configuration evidence may be machine-readable, but the check includes multiple commands, a configuration stanza, qualifications, or parsing complexity; human review is required before implementation.",
+  "control_id": "V-220594",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220594r1043189_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the Cisco switch configuration to verify that, when a password is changed, it requires the characters to be changed in at least eight of the positions as shown in the example below:\n\naaa new-model\n!\n!\naaa common-criteria policy PASSWORD_POLICY\nchar-changes 8\n\nIf the Cisco switch is not configured to require that when a password is changed, the characters are changed in at least eight of the positions within the password, this is a finding.",
+  "source_fix_text": "Configure the Cisco switch to enforce password complexity by requiring that when a password is changed, the characters are changed in at least eight of the positions within the password as shown in the example below:\n\nSW1(config)#aaa common-criteria policy PASSWORD_POLICY\nSW1(config-cc-policy)#char-changes 8\nSW1(config-cc-policy)#exit",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-000610",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to require that when a password is changed, the characters are changed in at least eight of the positions within the password.",
+  "triage_classification": "semi_automated"
+}

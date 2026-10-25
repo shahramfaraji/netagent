@@ -1,0 +1,26 @@
+{
+  "catalog_version": "Y26M04",
+  "classification_method": "Conservative keyword/structure heuristic over source check text; requires human review and fixture-backed validation.",
+  "counts": {
+    "classification": {
+      "candidate_automated": 1,
+      "manual_review": 85,
+      "semi_automated": 32
+    },
+    "severity": {
+      "high": 13,
+      "low": 15,
+      "medium": 90
+    },
+    "stig": {
+      "L2S": 22,
+      "NDM": 43,
+      "RTR": 53
+    },
+    "total": 118
+  },
+  "generated_count": 118,
+  "policy": "All controls remain status=draft and automation_level=manual. Triage classification is heuristic only; no rule is executable or approved.",
+  "schema_version": 1,
+  "source_catalog": "standards/disa-cisco-ios-switch/Y26M04/catalog.json"
+}

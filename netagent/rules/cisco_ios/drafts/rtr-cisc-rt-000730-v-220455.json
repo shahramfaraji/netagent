@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT I",
+  "cci": [
+    "CCI-001097"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220455",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220455r622190_rule",
+  "schema_version": 1,
+  "severity": "high",
+  "source_check_text": "Step 1: Review the switch configuration to verify that an ingress ACL is applied to all external or CE-facing interfaces.\n\ninterface GigabitEthernet0/2\nno switchport\nip address x.1.12.2 255.255.255.252\nip access-group BLOCK_TO_CORE in\n\nStep 2: Verify that the ingress ACL discards and logs packets destined to the IP core address space.\n\nip access-list extended BLOCK_TO_CORE\ndeny ip any 10.1.x.0 0.0.255.255 log-input\npermit ip any any\n!\n\nIf the PE switch is not configured to block any traffic with a destination address assigned to the IP core infrastructure, this is a finding.\n\nNote: Internet Control Message Protocol (ICMP) echo requests and traceroutes will be allowed to the edge from external adjacent neighbors.",
+  "source_fix_text": "Configure protection for the IP core to be implemented at the edges by blocking any traffic with a destination address assigned to the IP core infrastructure.\n\nStep 1: Configure an ingress ACL to discard and log packets destined to the IP core address space.\n\nSW2(config)#ip access-list extended BLOCK_TO_CORE\nSW2(config-ext-nacl)#deny ip any 10.1.x.0 0.0.255.255 log-input\nSW2(config-ext-nacl)#exit\n\nStep 2: Apply the ACL inbound to all external or CE-facing interfaces.\n\nSW2(config)#int SW1(config)#int g0/2\nSW2(config-if)#ip access-group BLOCK_TO_CORE in\nSW2(config-if)#end",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000730",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco PE switch must be configured to block any traffic that is destined to the IP core infrastructure.",
+  "triage_classification": "manual_review"
+}

@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-002403"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220443",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220443r863240_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the switch configuration to verify that an ingress access control list (ACL) applied to all external interfaces is blocking packets with Bogon source addresses.\n\nStep 1: Verify that an ACL has been configured containing the current Bogon prefixes as shown in the example below:\n\nip access-list extended FILTER_PERIMETER\ndeny ip 0.0.0.0 0.255.255.255 any log-input\ndeny ip 10.0.0.0 0.255.255.255 any log-input\ndeny ip 100.64.0.0 0.63.255.255 any log-input\ndeny ip 127.0.0.0 0.255.255.255 any log-input\ndeny ip 169.254.0.0 0.0.255.255 any log-input\ndeny ip 172.16.0.0 0.15.255.255 any log-input\ndeny ip 192.0.0.0 0.0.0.255 any log-input\ndeny ip 192.0.2.0 0.0.0.255 any log-input\ndeny ip 192.168.0.0 0.0.255.255 any log-input\ndeny ip 198.18.0.0 0.1.255.255 any log-input\ndeny ip 198.51.100.0 0.0.0.255 any log-input\ndeny ip 203.0.113.0 0.0.0.255 any log-input\ndeny ip 224.0.0.0 31.255.255.255 any log-input\ndeny ip 240.0.0.0 15.255.255.255 any log-input\npermit tcp any any established\npermit icmp host x.12.1.9 host x.12.1.10 echo\npermit icmp host x.12.1.9 host x.12.1.10 echo-reply\n…\n…\n…\ndeny ip any any log-input\n\nStep 2: Verify that the inbound ACL applied to all external interfaces will block all traffic from Bogon source addresses.\n\ninterface GigabitEthernet0/1\ndescription Link to DISN\nip address x.12.1.10 255.255.255.254\nip access-group FILTER_PERIMETER in\n\nIf the switch is not configured to block inbound packets with source Bogon IP address prefixes, this is a finding.",
+  "source_fix_text": "Configure the perimeter to block inbound packets with Bogon source addresses.\n\nStep 1: Configure an ACL containing the current Bogon prefixes as shown below:\n\nSW1(config)#ip access-list extended FILTER_PERIMETER\nSW1(config-ext-nacl)#deny ip 0.0.0.0 0.255.255.255 any log-input\nSW1(config-ext-nacl)#deny ip 10.0.0.0 0.255.255.255 any log-input\nSW1(config-ext-nacl)#deny ip 100.64.0.0 0.63.255.255 any log-input\nSW1(config-ext-nacl)#deny ip 127.0.0.0 0.255.255.255 any log-input\nSW1(config-ext-nacl)#deny ip 169.254.0.0 0.0.255.255 any log-input\nSW1(config-ext-nacl)#deny ip 172.16.0.0 0.15.255.255 any log-input\nSW1(config-ext-nacl)#deny ip 192.0.0.0 0.0.0.255 any log-input\nSW1(config-ext-nacl)#deny ip 192.0.2.0 0.0.0.255 any log-input\nSW1(config-ext-nacl)#deny ip 192.168.0.0 0.0.255.255 any log-input\nSW1(config-ext-nacl)#deny ip 198.18.0.0 0.1.255.255 any log-input\nSW1(config-ext-nacl)#deny ip 198.51.100.0 0.0.0.255 any log-input\nSW1(config-ext-nacl)#deny ip 203.0.113.0 0.0.0.255 any log-input\nSW1(config-ext-nacl)#deny ip 224.0.0.0 31.255.255.255 any log-input\nSW1(config-ext-nacl)#deny ip 240.0.0.0 15.255.255.255 any log-input\nSW1(config-ext-nacl)#permit tcp any any established\nSW1(config-ext-nacl)#permit icmp host x.12.1.9 host x.12.1.10 echo\nSW1(config-ext-nacl)#permit icmp host x.12.1.9 host x.12.1.10 echo-reply\n…\n…\n…\nSW1(config-ext-nacl)#deny ip any any log-input\nSW1(config-ext-nacl)#end\n\nStep 2: Apply the ACL inbound on all external interfaces.\n\nSW1(config)#int g0/0\nSW1(config-if)#ip access-group FILTER_PERIMETER in\nSW1(config-if)#end",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000270",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco perimeter switch must be configured to block inbound packets with source Bogon IP address prefixes.",
+  "triage_classification": "manual_review"
+}

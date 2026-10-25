@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT II",
+  "cci": [
+    "CCI-001097"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Source text indicates interface/ACL placement, topology, certificate or account context, applicability, or other environmental judgment; keep manual until reviewed.",
+  "control_id": "V-220446",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220446r622190_rule",
+  "schema_version": 1,
+  "severity": "medium",
+  "source_check_text": "Review the switch configuration to verify that an inbound ACL is configured on all external interfaces as shown in the example below:\n\ninterface GigabitEthernet0/2\nip address x.11.1.2 255.255.255.254\nip access-group EXTERNAL_ACL_INBOUND in\n\nIf the switch is not configured to filter traffic entering the network at all external interfaces in an inbound direction, this is a finding.",
+  "source_fix_text": "Configure the switch to use an inbound ACL on all external interfaces as shown in the example below:\n\nSW1(config)#int g0/2\nSW1(config-if)#ip access-group EXTERNAL_ACL_INBOUND in",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_RTR_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml",
+    "release": "3",
+    "sha256": "24b6028d1dab56b038ecbd4362ccbcaf1ae9c80c5075f68d041b2a2e811bfdee",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "RTR",
+  "stig_id": "CISC-RT-000330",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco perimeter switch must be configured to filter ingress traffic at the external interface on an inbound direction.",
+  "triage_classification": "manual_review"
+}

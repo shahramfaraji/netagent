@@ -1,0 +1,42 @@
+{
+  "applicability": "unknown",
+  "automation_level": "manual",
+  "category": "CAT I",
+  "cci": [
+    "CCI-001133"
+  ],
+  "check_strategy": null,
+  "classification_rationale": "Configuration evidence may be machine-readable, but the check includes multiple commands, a configuration stanza, qualifications, or parsing complexity; human review is required before implementation.",
+  "control_id": "V-220596",
+  "evidence_requirements": [],
+  "fail_condition": null,
+  "fixture_status": "not_created",
+  "pass_condition": null,
+  "remediation": null,
+  "review_notes": [],
+  "reviewer": null,
+  "rule_id": "SV-220596r961068_rule",
+  "schema_version": 1,
+  "severity": "high",
+  "source_check_text": "Review the Cisco switch configuration to verify that all network connections associated with a device management have an idle timeout value set to five minutes or less as shown in the example below:\n\nip http secure-server\nip http timeout-policy idle 300 life nnnn requests nn\n…\n…\n…\nline con 0\nexec-timeout 5 0\nline vty 0 1\nexec-timeout 5 0\n\nIf the Cisco switch is not configured to terminate all network connections associated with a device management after five minutes of inactivity, this is a finding.",
+  "source_fix_text": "Set the idle timeout value to five minutes or less on all configured login classes as shown in the example below:\n\nSW1(config)#line vty 0 1\nSW1(config-line)#exec-timeout 5 0\nSW1(config-line)#exit\nSW1(config)#line con 0\nSW1(config-line)#exec-timeout 5 0\nSW1(config-line)#exit\nSW2(config)#ip http timeout-policy idle 300 life nnnn requests nn",
+  "source_ref": {
+    "benchmark_id": "Cisco_IOS_Switch_NDM_STIG",
+    "date": "01 Apr 2026",
+    "file": "U_Cisco_IOS_Switch_NDM_STIG_V3R7_Manual-xccdf.xml",
+    "release": "7",
+    "sha256": "b1b9f86490c0aa2ff8835d0b4e63258c26fce21c4655d7dfdf30126289238913",
+    "version": "3"
+  },
+  "status": "draft",
+  "stig": "NDM",
+  "stig_id": "CISC-ND-000720",
+  "target_families": [
+    "Catalyst 2960-X",
+    "Catalyst 2960-XR",
+    "Catalyst 2960-L"
+  ],
+  "target_platform": "cisco_ios",
+  "title": "The Cisco switch must be configured to terminate all network connections associated with device management after five minutes of inactivity.",
+  "triage_classification": "semi_automated"
+}
