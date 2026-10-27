@@ -17,7 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from netagent.stig_assessment import AssessmentRule, DeviceContext, evaluate_rule, coverage_summary
 
 
-DEFAULT_CONFIG = PROJECT_ROOT / "examples" / "configs" / "config.old"
+DEFAULT_CONFIG = PROJECT_ROOT / "examples" / "configs" / "stig-sample-sw1.cfg"
 CATALOG_PATH = PROJECT_ROOT / "standards" / "disa-cisco-ios-switch" / "Y26M04" / "catalog.json"
 DRAFT_ROOT = PROJECT_ROOT / "rules" / "cisco_ios" / "drafts"
 FAMILIES = ("Catalyst 2960-X", "Catalyst 2960-XR", "Catalyst 2960-L")
@@ -159,7 +159,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--config", type=Path, default=DEFAULT_CONFIG,
-        help="path to the IOS config file (default: examples/configs/config.old)",
+        help="path to a sanitized IOS config fixture (default: examples/configs/stig-sample-sw1.cfg)",
     )
     parser.add_argument(
         "--family", choices=FAMILIES, default=None,

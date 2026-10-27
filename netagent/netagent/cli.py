@@ -12,10 +12,15 @@ from .collector import ConfigStore, fetch, check_ssh_connection
 from .compliance import evaluate_detailed, load_rules, report_markdown
 from .credentials import get_credential
 from .discovery import discover
-from .deploy import ApprovalResult, ApprovalStatus, apply_config, preview_config, redact_config, rollback_config
+from .deploy import (ApprovalResult, ApprovalStatus, apply_config, preview_config, redact_config,
+                     rollback_config, risky_command_groups, load_risk_allowlist)
 from .models import load_inventory
 from .topology import build_graph, parse_neighbors, to_json, to_mermaid
 from .ssh import trust_host_key
+from .evidence import collect_device_readonly_evidence, load_evidence_bundle
+from .reporting import build_json_report, render_html_report, render_json_report, render_markdown_report
+from .stig_assessment import DeviceContext, evaluate_rule_levels, exit_code, load_approved_rules, load_waivers
+from .stig_export import render_cklb, render_xccdf_testresult
 
 
 def cmd_discover(a) -> int:
@@ -34,6 +39,20 @@ def cmd_trust_host_key(a) -> int:
         raise RuntimeError("trust-on-first-use requires an interactive terminal; unknown hosts are rejected in non-interactive mode")
     device = _selected_device(a.inventory, a.device)
     print(trust_host_key(device, known_hosts=a.known_hosts))
+    return 0
+
+
+def cmd_collect_evidence(a) -> int:
+    device = _selected_device(a.inventory, a.device)
+    if device.platform != "cisco_ios":
+        raise ValueError(f"read-only STIG evidence collection supports only cisco_ios, not {device.platform!r}")
+    cred = get_credential(prompt=not a.no_prompt)
+    result = collect_device_readonly_evidence(
+        device, cred, a.out_dir, timeout=a.timeout, known_hosts=a.known_hosts
+    )
+    print(f"Collected {len(result['files'])} evidence files for {device.hostname} -> {a.out_dir}")
+    for warning in result["warnings"]:
+        print(f"WARNING: {warning}", file=sys.stderr)
     return 0
 
 
@@ -118,19 +137,22 @@ def cmd_apply(a) -> int:
         print(f"Verified backups: local {preview.local_backup}, device {preview.device_backup}")
         if input(f"Type {preview.hostname} to approve this config change: ").strip() != preview.hostname:
             return ApprovalResult(ApprovalStatus.DECLINED)
-        risk_confirmed = False
+        confirmed_groups = []
         if preview.risky_commands:
-            print("MANAGEMENT-RISK COMMANDS:")
-            for command in preview.risky_commands:
-                print(f"  {redact_config(command)}")
-            expected = f"RISK {preview.hostname}"
-            risk_confirmed = input(f"Type {expected} to confirm these management risks: ").strip() == expected
-            if not risk_confirmed:
-                return ApprovalResult(ApprovalStatus.DECLINED)
-        return ApprovalResult(ApprovalStatus.APPROVED, risk_confirmed=risk_confirmed)
+            print("MANAGEMENT-RISK COMMANDS (each group requires its own confirmation):")
+            for group, commands in risky_command_groups(preview.risky_commands).items():
+                print(f"  [{group}]")
+                for command in commands:
+                    print(f"    {redact_config(command)}")
+                expected = f"RISK {preview.hostname} {group}"
+                if input(f"Type {expected} to confirm this risk group: ").strip() != expected:
+                    return ApprovalResult(ApprovalStatus.DECLINED)
+                confirmed_groups.append(group)
+        return ApprovalResult(ApprovalStatus.APPROVED, risk_groups_confirmed=tuple(confirmed_groups))
 
+    risk_allowlist = tuple(a.allow_risky_command) + load_risk_allowlist(a.risk_allowlist)
     result = apply_config(device, candidate, cred, store, approve=approve,
-                          allow_risky_commands=a.allow_risky_command)
+                          allow_risky_commands=risk_allowlist)
     print(result)
     return 2 if result.startswith("Approval declined") else 0
 
@@ -154,7 +176,14 @@ def cmd_rollback(a) -> int:
         print(f"Verified recovery backups: local {local_backup}, device {recovery_backup}")
         return input(f"Type {hostname} to approve this rollback: ").strip() == hostname
 
-    result = rollback_config(device, cred, store, approve=approve)
+    def approve_changed(hostname, current_hash, recorded_hash):
+        print("\nCURRENT CONFIG DIFFERS FROM THE RECORDED POST-APPLY HASH")
+        print(f"Current SHA-256: {current_hash}")
+        print(f"Recorded SHA-256: {recorded_hash or 'missing'}")
+        expected = f"CONFIG CHANGED {hostname}"
+        return input(f"Type {expected} to continue rollback despite the mismatch: ").strip() == expected
+
+    result = rollback_config(device, cred, store, approve=approve, approve_changed=approve_changed)
     print(result)
     return 2 if result.startswith("Approval declined") else 0
 
@@ -216,6 +245,57 @@ def cmd_audit(a) -> int:
     return 0
 
 
+def cmd_assess(a) -> int:
+    rules = load_approved_rules(a.rules)
+    config, evidence = load_evidence_bundle(a.evidence_dir)
+    show_version = evidence.get("show_version")
+    device = DeviceContext(
+        hostname=a.hostname,
+        platform="cisco_ios",
+        family=a.family,
+        show_version=show_version,
+        roles_dir=a.roles_dir,
+    )
+    roles = None
+    if a.roles_dir:
+        role_path = Path(a.roles_dir) / f"{a.hostname}.json"
+        if role_path.is_file():
+            raw_roles = json.loads(role_path.read_text(encoding="utf-8"))
+            roles = raw_roles.get("interfaces", raw_roles) if isinstance(raw_roles, dict) else None
+            if not isinstance(roles, dict):
+                raise ValueError(f"invalid operator role file: {role_path}")
+    waivers = load_waivers(a.waivers)
+    rows = [
+        evaluate_rule_levels(rule, device, config, evidence, roles=roles, waivers=waivers, level=a.level)
+        for rule in rules
+    ]
+    catalog = json.loads(Path(a.catalog).read_text(encoding="utf-8"))
+    report = build_json_report(device, rows, catalog_version=catalog.get("catalog_version", "unknown"),
+                               run_metadata={"level": a.level, "evidence_dir": str(a.evidence_dir), "approved_rule_count": len(rules)})
+    if not rules:
+        print("nothing executed: no approved rules are available; verdict NO_RULES")
+    if a.format == "json":
+        output = render_json_report(report)
+    elif a.format == "md":
+        output = render_markdown_report(report)
+    elif a.format == "html":
+        output = render_html_report(report)
+    elif a.format == "cklb":
+        output = render_cklb(catalog, rows, a.cklb_template, a.stig_part, a.hostname, a.level)
+    elif a.format == "xccdf":
+        output = render_xccdf_testresult(catalog, rows, a.stig_part, a.hostname, a.level)
+    else:
+        raise ValueError(f"unsupported report format: {a.format}")
+    if a.out:
+        out_path = Path(a.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(output, encoding="utf-8")
+    else:
+        print(output, end="" if output.endswith("\n") else "\n")
+    return exit_code(rows, fail_on=a.fail_on, allow_unknown=a.allow_unknown,
+                     strict_manual=a.strict_manual, fail_on_pro=a.fail_on_pro)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="netagent", description="Network discovery, backup, topology, compliance (MVP)")
     p.add_argument("--version", action="version", version=__version__)
@@ -232,6 +312,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--known-hosts", help="known_hosts file (default: NETAGENT_KNOWN_HOSTS or data/known_hosts)")
     s.add_argument("--no-prompt", action="store_true", help="forbidden for trust-on-first-use; fails closed")
     s.set_defaults(func=cmd_trust_host_key)
+
+    s = sub.add_parser("collect-evidence", help="collect allowlisted read-only Cisco IOS STIG evidence over verified SSH")
+    s.add_argument("--inventory", required=True)
+    s.add_argument("--device", required=True, help="exact inventory hostname; one device per invocation")
+    s.add_argument("--out-dir", required=True, help="directory for separate evidence output files")
+    s.add_argument("--timeout", type=int, default=60)
+    s.add_argument("--known-hosts", help="known_hosts file (default: NETAGENT_KNOWN_HOSTS or data/known_hosts)")
+    s.add_argument("--no-prompt", action="store_true", help="use environment credentials only")
+    s.set_defaults(func=cmd_collect_evidence)
 
     s = sub.add_parser("test-ssh", help="test SSH login to one inventory device; no config commands")
     s.add_argument("--inventory", required=True)
@@ -259,6 +348,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     s.add_argument("--allow-risky-command", action="append", default=[], metavar="EXACT_LINE",
                    help="allow an exact management-risk command line; still requires separate typed risk confirmation")
+    s.add_argument("--risk-allowlist", help="JSON file containing an allowed_commands list of exact command lines")
     s.set_defaults(func=cmd_apply)
 
     s = sub.add_parser("rollback", help="preview or restore the latest applied config snapshot")
@@ -274,6 +364,25 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--out", default="data/topology")
     s.set_defaults(func=cmd_topology)
 
+    s = sub.add_parser("assess", help="assess Cisco IOS STIG evidence and export a report")
+    s.add_argument("--hostname", required=True, help="synthetic or operator-supplied device hostname")
+    s.add_argument("--evidence-dir", required=True, help="directory containing read-only evidence files")
+    s.add_argument("--rules", default="rules/cisco_ios", help="directory of rules; only status=approved rules execute")
+    s.add_argument("--catalog", default="standards/disa-cisco-ios-switch/Y26M04/catalog.json")
+    s.add_argument("--cklb-template", default="examples/sample-synthetic.cklb", help="sanitized CKLB template; STIG Viewer import still needs validation")
+    s.add_argument("--stig-part", choices=("L2S", "NDM", "RTR"), default="L2S")
+    s.add_argument("--family", help="explicitly verified device family; otherwise derived only from show version")
+    s.add_argument("--level", choices=("standard", "pro"), default="pro")
+    s.add_argument("--fail-on", choices=("none", "critical", "high", "medium", "low"), default="high")
+    s.add_argument("--fail-on-pro", choices=("none", "critical", "high", "medium", "low"), default="none")
+    s.add_argument("--allow-unknown", action="store_true")
+    s.add_argument("--strict-manual", action="store_true")
+    s.add_argument("--roles-dir")
+    s.add_argument("--waivers")
+    s.add_argument("--format", choices=("cklb", "xccdf", "md", "html", "json"), default="md")
+    s.add_argument("--out")
+    s.set_defaults(func=cmd_assess)
+
     s = sub.add_parser("audit", help="check configs against rules")
     s.add_argument("--rules", required=True); s.add_argument("--inventory", required=True)
     s.add_argument("--configs", default="data/configs"); s.add_argument("--out")
@@ -288,7 +397,7 @@ def main(argv=None) -> int:
     logging.basicConfig(level=logging.DEBUG if a.verbose else logging.WARNING, format="%(levelname)s %(message)s")
     try:
         return a.func(a)
-    except (ValueError, RuntimeError, FileNotFoundError) as exc:
+    except (ValueError, RuntimeError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 

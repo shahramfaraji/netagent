@@ -1,0 +1,2 @@
+VLAN Name                             Status    Ports
+10   SYNTHETIC_USERS                  active    Gi1/0/1

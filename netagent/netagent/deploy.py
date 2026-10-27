@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import difflib
 import hashlib
+import json
 import logging
 import re
 import uuid
@@ -26,6 +27,7 @@ from .ssh import connection_params
 log = logging.getLogger(__name__)
 
 _SUPPORTED_APPLY_PLATFORM = "cisco_ios"
+_CONFIG_REVERT_TIMER_COMMAND = "configure revert timer 5"  # TODO(verify-on-device): syntax is platform/version-specific.
 _CONFIG_ERROR = re.compile(
     r"(?im)(?:^|\n)\s*(?:%\s*(?:invalid input|incomplete command|ambiguous command|error|failed)|"
     r"error:|fatal:|command rejected|failed)"
@@ -39,15 +41,16 @@ _SECRET_VALUE_PATTERNS = (
     re.compile(r"(?i)(\btoken\s+)(\S+)"),
 )
 _FORBIDDEN_COMMAND = re.compile(
-    r"(?i)^\s*(?:(?:do\s+)?(?:configure\s+(?:replace|terminal)|copy\s+|write(?:\s+memory)?\b|"
-    r"reload\b|delete\s+|erase\b|format\b)|end\s*$|exit\s*$|show(?:\s+|$)|enable\s*$)"
+    r"(?i)^\s*(?:(?:do\s+)?(?:tclsh\b|clear\b|debug\b|crypto\s+key\s+zeroize\b|archive\b|"
+    r"configure\s+(?:replace|terminal)|copy\s+|write(?:\s+memory)?\b|reload\b|delete\s+|erase\b|format\b)|"
+    r"end\s*$|exit\s*$|show(?:\s+|$)|enable\s*$)"
 )
 _MANAGEMENT_RISK_PATTERNS = (
     re.compile(r"(?i)^\s*(?:shutdown|no\s+shutdown)\s*$"),
     re.compile(r"(?i)^\s*(?:no\s+)?(?:ip\s+access-group|ipv6\s+traffic-filter)\b"),
     re.compile(r"(?i)^\s*(?:no\s+)?(?:access-class|transport\s+input|transport\s+output)\b"),
     re.compile(r"(?i)^\s*(?:no\s+)?(?:username|aaa\s+|enable\s+(?:secret|password)|line\s+vty\b)"),
-    re.compile(r"(?i)^\s*(?:ip\s+route|ipv6\s+route|no\s+ip\s+routing|ip\s+default-gateway)\b"),
+    re.compile(r"(?i)^\s*(?:no\s+)?(?:ip\s+route|ipv6\s+route|ip\s+default-gateway|ip\s+routing)\b"),
     re.compile(r"(?i)^\s*(?:no\s+)?(?:vrf\s+forwarding|ip\s+ssh|crypto\s+key|snmp-server\s+community)\b"),
 )
 
@@ -61,6 +64,7 @@ class ApprovalStatus(str, Enum):
 class ApprovalResult:
     status: ApprovalStatus
     risk_confirmed: bool = False
+    risk_groups_confirmed: tuple[str, ...] = ()
 
     @property
     def approved(self) -> bool:
@@ -120,12 +124,52 @@ def clean_candidate(text: str, allow_risky_commands: tuple[str, ...] | list[str]
     return lines
 
 
+def load_risk_allowlist(path: str | Path | None) -> tuple[str, ...]:
+    """Load explicit exact-command approvals from a small JSON policy file."""
+    if path is None:
+        return ()
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read risk allowlist: {exc}") from exc
+    if not isinstance(raw, dict) or set(raw) != {"allowed_commands"}:
+        raise ValueError("risk allowlist must contain only an allowed_commands list")
+    commands = raw["allowed_commands"]
+    if not isinstance(commands, list) or any(not isinstance(item, str) or not item.strip() for item in commands):
+        raise ValueError("risk allowlist allowed_commands must be a list of non-empty exact command lines")
+    if len({item.strip().casefold() for item in commands}) != len(commands):
+        raise ValueError("risk allowlist contains duplicate commands")
+    return tuple(item.strip() for item in commands)
+
+
 def _is_management_risk(line: str) -> bool:
     return any(pattern.search(line) for pattern in _MANAGEMENT_RISK_PATTERNS)
 
 
+def _risk_group(line: str) -> str:
+    """Map each risky command to a named confirmation group."""
+    if re.search(r"(?i)^\s*(?:shutdown|no\s+shutdown)\s*$", line):
+        return "interface-state"
+    if re.search(r"(?i)^\s*(?:no\s+)?(?:ip\s+access-group|ipv6\s+traffic-filter|access-class|transport\s+input|transport\s+output|line\s+vty)\b", line):
+        return "management-access"
+    if re.search(r"(?i)^\s*(?:no\s+)?(?:username|aaa\s+|enable\s+(?:secret|password))", line):
+        return "identity-authentication"
+    if re.search(r"(?i)^\s*(?:no\s+)?(?:ip\s+route|ipv6\s+route|ip\s+default-gateway|ip\s+routing|vrf\s+forwarding)", line):
+        return "routing-reachability"
+    if re.search(r"(?i)^\s*(?:no\s+)?(?:ip\s+ssh|crypto\s+key|snmp-server\s+community)", line):
+        return "crypto-and-management-services"
+    return "other-management-risk"
+
+
 def _risky_commands(lines: list[str]) -> tuple[str, ...]:
     return tuple(line.strip() for line in lines if _is_management_risk(line))
+
+
+def risky_command_groups(commands: tuple[str, ...] | list[str]) -> dict[str, tuple[str, ...]]:
+    groups: dict[str, list[str]] = {}
+    for command in commands:
+        groups.setdefault(_risk_group(command), []).append(command)
+    return {name: tuple(lines) for name, lines in sorted(groups.items())}
 
 
 def redact_config(config: str) -> str:
@@ -297,7 +341,7 @@ def _replace_running_config(conn, remote_path: str, operation: str) -> None:
 
 def _start_safety_timer(conn) -> None:
     """Arm a five-minute IOS configuration-revert timer (TODO(verify-on-device))."""
-    output = _checked_output(conn.send_command_timing("configure revert timer 5", read_timeout=30,
+    output = _checked_output(conn.send_command_timing(_CONFIG_REVERT_TIMER_COMMAND, read_timeout=30,
                                 strip_prompt=False, strip_command=False), "arming configuration-revert timer")
     if not re.search(r"(?i)(timer|revert|minutes|configuration)", output):
         raise RuntimeError("device did not confirm configuration-revert timer activation (TODO(verify-on-device))")
@@ -396,8 +440,10 @@ def apply_config(device: Device, candidate_text: str, cred: Credential, store: C
                     f"Approval declined; config was not modified; verified backups retained: "
                     f"local {local_backup.name}, device {remote_backup}"
                 )
-            if preview.risky_commands and not (isinstance(approval, ApprovalResult) and approval.risk_confirmed):
-                raise RuntimeError("management-risk commands require separate explicit risk confirmation")
+            required_risk_groups = set(risky_command_groups(preview.risky_commands))
+            confirmed_risk_groups = set(approval.risk_groups_confirmed) if isinstance(approval, ApprovalResult) else set()
+            if required_risk_groups and not required_risk_groups.issubset(confirmed_risk_groups):
+                raise RuntimeError("management-risk commands require separate typed confirmation for each risk group")
             store.record_deployment(device.hostname, {
                 "status": "applying", "platform": device.platform,
                 "remote_backup": remote_backup, "local_backup": local_backup.name,
@@ -416,6 +462,7 @@ def apply_config(device: Device, candidate_text: str, cred: Credential, store: C
                         "remote_backup": remote_backup, "local_backup": local_backup.name,
                         "candidate_sha256": preview.candidate_sha256,
                         "verified_candidate_sha256": expected_hash,
+                        "post_apply_config_sha256": hashlib.sha256(normalize(observed).encode("utf-8")).hexdigest(),
                         "completed_at": datetime.now(timezone.utc).isoformat(),
                     })
                 _verify_new_connection(device, cred, connector, lines, expected_hash, finalize)
@@ -467,7 +514,8 @@ def apply_config(device: Device, candidate_text: str, cred: Credential, store: C
 
 
 def rollback_config(device: Device, cred: Credential, store: ConfigStore,
-                    approve: Callable[[str, str, str, str], bool], connector: Callable | None = None) -> str:
+                    approve: Callable[[str, str, str, str], bool], connector: Callable | None = None,
+                    approve_changed: Callable[[str, str, str | None], bool] | None = None) -> str:
     """Restore the latest successful deployment snapshot after separate approval."""
     if approve is None:
         raise RuntimeError("an interactive human approval callback is required")
@@ -484,6 +532,11 @@ def rollback_config(device: Device, cred: Credential, store: ConfigStore,
         with quiet_transport_logs(), connector(**_params(device, cred)) as conn:
             _enable_if_needed(conn, device, cred)
             current = conn.send_command(SHOW_CONFIG[device.platform], read_timeout=120)
+            current_hash = hashlib.sha256(normalize(current).encode("utf-8")).hexdigest()
+            recorded_hash = manifest.get("post_apply_config_sha256")
+            if not isinstance(recorded_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", recorded_hash) or current_hash != recorded_hash:
+                if approve_changed is None or not approve_changed(device.hostname, current_hash, recorded_hash if isinstance(recorded_hash, str) else None):
+                    raise RuntimeError("current config differs from the recorded post-apply hash; extra typed confirmation is required")
             _check_rollback_support(conn)
             _verify_device_snapshot(conn, target)
             local_backup = store.backup(device.hostname, current)

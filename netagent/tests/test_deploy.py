@@ -1,12 +1,14 @@
+import hashlib
 import os
 import tempfile
 import unittest
 from pathlib import Path
 
-from netagent.collector import ConfigStore
+from netagent.collector import ConfigStore, normalize
 from netagent.credentials import Credential
 from netagent.deploy import (ApprovalResult, ApprovalStatus, _candidate_present, _params, apply_config,
-                             clean_candidate, preview_config, redact_config, rollback_config)
+                             clean_candidate, preview_config, redact_config, rollback_config, risky_command_groups,
+                             load_risk_allowlist)
 from netagent.models import Device
 
 
@@ -81,6 +83,16 @@ class TestDeploy(unittest.TestCase):
             with self.subTest(candidate=candidate), self.assertRaises(ValueError):
                 clean_candidate(candidate)
 
+    def test_clean_candidate_rejects_additional_shell_and_destructive_commands(self):
+        candidates = (
+            "tclsh\n", "clear counters\n", "debug all\n",
+            "crypto key zeroize rsa\n", "archive\n", "delete flash:startup.cfg\n",
+            "format flash:\n", "copy running-config flash:backup.cfg\n", "write memory\n", "erase startup-config\n",
+        )
+        for candidate in candidates:
+            with self.subTest(candidate=candidate), self.assertRaises(ValueError):
+                clean_candidate(candidate)
+
     def test_candidate_has_size_and_command_limits(self):
         with self.assertRaisesRegex(ValueError, "64 KiB"):
             clean_candidate("x" * (64 * 1024 + 1))
@@ -114,6 +126,26 @@ class TestDeploy(unittest.TestCase):
             clean_candidate(candidate, enforce_risk_allowlist=True)
         self.assertEqual(clean_candidate(candidate, ["line vty 0 4", "transport input ssh"], enforce_risk_allowlist=True),
                          ["line vty 0 4", " transport input ssh"])
+
+    def test_risk_allowlist_file_accepts_only_unique_exact_command_lines(self):
+        path = self.root / "risk-allowlist.json"
+        path.write_text('{"allowed_commands": ["line vty 0 4", "transport input ssh"]}', encoding="utf-8")
+        self.assertEqual(load_risk_allowlist(path), ("line vty 0 4", "transport input ssh"))
+        path.write_text('{"allowed_commands": ["line vty 0 4", "LINE VTY 0 4"]}', encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            load_risk_allowlist(path)
+        path.write_text('{"allowed_commands": ["line vty 0 4"], "allow_all": true}', encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "only an allowed_commands list"):
+            load_risk_allowlist(path)
+
+    def test_management_risk_categories_require_exact_allowlist(self):
+        candidates = (
+            "no username admin\n", "shutdown\n", "no ip route 0.0.0.0 0.0.0.0 192.0.2.1\n",
+            "line vty 0 4\n transport input none\n", "crypto key generate rsa\n",
+        )
+        for candidate in candidates:
+            with self.subTest(candidate=candidate), self.assertRaisesRegex(ValueError, "management-risk"):
+                clean_candidate(candidate, enforce_risk_allowlist=True)
 
     def test_secret_redaction_preserves_context_but_masks_value(self):
         text = "username admin secret 5 abcdef123\nsnmp-server community public RO\n"
@@ -181,6 +213,7 @@ class TestDeploy(unittest.TestCase):
         manifest = self.store.load_deployment("sw1")
         self.assertEqual(manifest["status"], "applied")
         self.assertRegex(manifest["verified_candidate_sha256"], r"^[0-9a-f]{64}$")
+        self.assertRegex(manifest["post_apply_config_sha256"], r"^[0-9a-f]{64}$")
         self.assertRegex(manifest["remote_backup"], r"^flash:netagent-[0-9a-f]{12}-preapply\.cfg$")
         self.assertNotIn("password", (self.root / "deployments/sw1/latest.json").read_text().lower())
 
@@ -200,10 +233,22 @@ class TestDeploy(unittest.TestCase):
                          approve=lambda _: True, connector=lambda **kwargs: conn)
         self.assertFalse(any(kind == "apply" for kind, _ in conn.calls))
 
+    def test_management_risk_commands_are_grouped_for_separate_confirmation(self):
+        groups = risky_command_groups((
+            "shutdown", "line vty 0 4", "transport input ssh",
+            "no username admin", "no ip route 0.0.0.0 0.0.0.0 192.0.2.1",
+            "crypto key generate rsa",
+        ))
+        self.assertEqual(set(groups), {
+            "interface-state", "management-access", "identity-authentication",
+            "routing-reachability", "crypto-and-management-services",
+        })
+        self.assertEqual(groups["management-access"], ("line vty 0 4", "transport input ssh"))
+
     def test_management_risk_requires_separate_typed_confirmation(self):
         candidate = "line vty 0 4\n transport input ssh\n"
         conn = FakeConnection()
-        with self.assertRaisesRegex(RuntimeError, "separate explicit risk confirmation"):
+        with self.assertRaisesRegex(RuntimeError, "separate typed confirmation for each risk group"):
             apply_config(self.device, candidate, self.cred, self.store,
                          approve=lambda _: ApprovalResult(ApprovalStatus.APPROVED, risk_confirmed=False),
                          connector=lambda **kwargs: conn,
@@ -274,6 +319,7 @@ class TestDeploy(unittest.TestCase):
         self.store.record_deployment("sw1", {
             "status": "applied", "platform": "cisco_ios",
             "remote_backup": "flash:netagent-123456abcdef-preapply.cfg",
+            "post_apply_config_sha256": hashlib.sha256(normalize(FakeConnection().running).encode()).hexdigest(),
         })
         conn = FakeConnection()
         result = rollback_config(self.device, self.cred, self.store,
@@ -298,6 +344,7 @@ class TestDeploy(unittest.TestCase):
         self.store.record_deployment("sw1", {
             "status": "applied", "platform": "cisco_ios",
             "remote_backup": "flash:netagent-123456abcdef-preapply.cfg",
+            "post_apply_config_sha256": hashlib.sha256(normalize(FakeConnection().running).encode()).hexdigest(),
         })
         conn = FakeConnection()
         result = rollback_config(self.device, self.cred, self.store,
@@ -308,6 +355,41 @@ class TestDeploy(unittest.TestCase):
         self.assertTrue(list((self.root / "configs").glob("sw1/backup-*.cfg")))
         self.assertFalse(any(kind == "timing" and command.startswith("configure replace")
                             for kind, command in conn.calls))
+
+    def test_rollback_requires_extra_confirmation_when_current_config_hash_changed(self):
+        self.store.record_deployment("sw1", {
+            "status": "applied", "platform": "cisco_ios",
+            "remote_backup": "flash:netagent-123456abcdef-preapply.cfg",
+            "post_apply_config_sha256": "0" * 64,
+        })
+        conn = FakeConnection()
+        with self.assertRaisesRegex(RuntimeError, "extra typed confirmation"):
+            rollback_config(
+                self.device, self.cred, self.store,
+                approve=lambda *args: self.fail("normal rollback approval must not precede changed-config confirmation"),
+                approve_changed=lambda hostname, current_hash, recorded_hash: False,
+                connector=lambda **kwargs: conn,
+            )
+        self.assertFalse(any(kind == "timing" and command.startswith("configure replace") for kind, command in conn.calls))
+
+    def test_rollback_accepts_changed_config_only_after_explicit_confirmation(self):
+        self.store.record_deployment("sw1", {
+            "status": "applied", "platform": "cisco_ios",
+            "remote_backup": "flash:netagent-123456abcdef-preapply.cfg",
+            "post_apply_config_sha256": "0" * 64,
+        })
+        conn = FakeConnection()
+        confirmed = []
+        result = rollback_config(
+            self.device, self.cred, self.store,
+            approve=lambda hostname, target, local, recovery: True,
+            approve_changed=lambda hostname, current_hash, recorded_hash: confirmed.append((hostname, current_hash, recorded_hash)) or True,
+            connector=lambda **kwargs: conn,
+        )
+        self.assertIn("Rolled back sw1", result)
+        self.assertEqual(len(confirmed), 1)
+        self.assertEqual(len(confirmed[0][1]), 64)
+        self.assertEqual(len(confirmed[0][2]), 64)
 
     def test_rollback_rejects_tampered_snapshot_path(self):
         self.store.record_deployment("sw1", {

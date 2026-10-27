@@ -1,0 +1,4 @@
+! Synthetic fixture only; not captured from a device.
+hostname synthetic-sw1
+service timestamps log datetime localtime
+!

@@ -11,6 +11,57 @@ EX = Path(__file__).parent.parent / "examples"
 
 
 class TestCLI(unittest.TestCase):
+    def test_collect_evidence_cli_uses_named_cisco_device_and_mock_transport(self):
+        from unittest.mock import MagicMock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inventory = root / "inventory.json"
+            inventory.write_text(json.dumps({"devices": [
+                {"hostname": "sw1", "host": "192.0.2.10", "platform": "cisco_ios"},
+                {"hostname": "sw2", "host": "192.0.2.11", "platform": "cisco_ios"},
+            ]}), encoding="utf-8")
+            connection = MagicMock()
+            connection.__enter__.return_value = connection
+            connection.send_command.side_effect = lambda command, **kwargs: f"SYNTHETIC {command}"
+            output = root / "evidence"
+            with patch("netagent.evidence.ConnectHandler", return_value=connection) as connect, \
+                 patch("netagent.cli.get_credential", return_value=Credential("operator", "fixture-only-password")), \
+                 redirect_stdout(StringIO()):
+                rc = main([
+                    "collect-evidence", "--inventory", str(inventory), "--device", "sw1",
+                    "--out-dir", str(output), "--known-hosts", str(root / "known_hosts"), "--no-prompt",
+                ])
+
+            from netagent.evidence import IOS_READ_ONLY_COMMANDS
+            self.assertEqual(rc, 0)
+            self.assertEqual({p.name for p in output.glob("*.txt")},
+                             {f"{key}.txt" for key in IOS_READ_ONLY_COMMANDS})
+            self.assertEqual(
+                [call.args[0] for call in connection.send_command.call_args_list],
+                list(IOS_READ_ONLY_COMMANDS.values()),
+            )
+            params = connect.call_args.kwargs
+            self.assertEqual(params["host"], "192.0.2.10")
+            self.assertEqual(params["device_type"], "cisco_ios")
+            self.assertIs(params["ssh_strict"], True)
+
+    def test_collect_evidence_rejects_non_cisco_before_connecting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            inventory = root / "inventory.json"
+            inventory.write_text(json.dumps({"devices": [
+                {"hostname": "router", "host": "192.0.2.20", "platform": "mikrotik_routeros"},
+            ]}), encoding="utf-8")
+            with patch("netagent.cli.get_credential", return_value=Credential("operator", "fixture-only-password")), \
+                 patch("netagent.evidence.ConnectHandler") as connect, \
+                 redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                rc = main([
+                    "collect-evidence", "--inventory", str(inventory), "--device", "router",
+                    "--out-dir", str(root / "evidence"), "--no-prompt",
+                ])
+            self.assertEqual(rc, 1)
+            connect.assert_not_called()
     def test_audit_and_topology_end_to_end(self):
         out = Path(tempfile.mkdtemp())
         with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
@@ -172,4 +223,12 @@ class TestCLI(unittest.TestCase):
         with redirect_stdout(StringIO()), redirect_stderr(err):
             self.assertEqual(main(["discover", "not-a-network"]), 1)
         self.assertIn("error:", err.getvalue())
+
+    def test_operational_os_error_returns_exit_code_one(self):
+        err = StringIO()
+        with patch("netagent.cli.cmd_discover", side_effect=PermissionError("synthetic permission error")), \
+             redirect_stdout(StringIO()), redirect_stderr(err):
+            rc = main(["discover", "192.0.2.0/24"])
+        self.assertEqual(rc, 1)
+        self.assertIn("synthetic permission error", err.getvalue())
 

@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -112,6 +113,13 @@ class ConfigStore:
 
     def __init__(self, root: str | Path = "data/configs") -> None:
         self.root = Path(root)
+        self._host_locks: dict[str, threading.Lock] = {}
+        self._host_locks_guard = threading.Lock()
+
+    def _host_lock(self, hostname: str) -> threading.Lock:
+        """Return a stable per-host lock so concurrent saves cannot race on latest.cfg."""
+        with self._host_locks_guard:
+            return self._host_locks.setdefault(hostname, threading.Lock())
 
     def _dir(self, hostname: str) -> Path:
         root = self.root.resolve()
@@ -193,16 +201,17 @@ class ConfigStore:
         return written
 
     def save(self, hostname: str, config: str, when: datetime | None = None) -> tuple[bool, str]:
-        """Returns (changed, unified_diff)."""
-        new = normalize(config)
-        old = self.latest(hostname)
-        if old == new:
-            return False, ""
-        diff = "".join(difflib.unified_diff((old or "").splitlines(True), new.splitlines(True),
-                                            fromfile="previous", tofile="current"))
-        ts = (when or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%S%fZ")
-        d = self._dir(hostname)
-        self._write_private(d / f"{ts}-{uuid.uuid4().hex[:8]}.cfg", new)
-        self._write_private(d / "latest.cfg", new)
-        log.info("saved %s sha256=%s", hostname, hashlib.sha256(new.encode()).hexdigest()[:12])
-        return True, diff
+        """Returns (changed, unified_diff); serializes concurrent writes per hostname."""
+        with self._host_lock(hostname):
+            new = normalize(config)
+            old = self.latest(hostname)
+            if old == new:
+                return False, ""
+            diff = "".join(difflib.unified_diff((old or "").splitlines(True), new.splitlines(True),
+                                                fromfile="previous", tofile="current"))
+            ts = (when or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%S%fZ")
+            d = self._dir(hostname)
+            self._write_private(d / f"{ts}-{uuid.uuid4().hex[:8]}.cfg", new)
+            self._write_private(d / "latest.cfg", new)
+            log.info("saved %s sha256=%s", hostname, hashlib.sha256(new.encode()).hexdigest()[:12])
+            return True, diff

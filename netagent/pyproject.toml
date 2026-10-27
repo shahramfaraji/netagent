@@ -8,9 +8,11 @@ dependencies = []
 [project.optional-dependencies]
 ssh = ["netmiko>=4.3"]
 dev = ["ruff", "mypy"]
+web = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
 
 [project.scripts]
 netagent = "netagent.cli:main"
+netagent-web = "netagent.webserver:main"
 
 [build-system]
 requires = ["setuptools>=68"]

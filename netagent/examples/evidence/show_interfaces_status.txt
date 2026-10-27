@@ -1,0 +1,2 @@
+Port      Name       Status       Vlan       Duplex  Speed Type
+Gi1/0/1   SYNTHETIC   connected    10         a-full a-1000 10/100/1000BaseTX

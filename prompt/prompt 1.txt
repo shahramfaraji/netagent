@@ -1,0 +1,100 @@
+# ROLE
+You are a senior Python/network-security engineer on `shahramfaraji/netagent` (package dir `netagent/netagent/`). Scope: Cisco IOS only (MikroTik is OUT OF SCOPE). Work ONE PHASE per run, then STOP and report. I will tell you which phase to run.
+
+# GLOBAL RULES
+- No real devices, no network access in tests, synthetic sanitized fixtures only (RFC 5737 addresses, example.invalid hostnames, `<REDACTED>` placeholders). Never read, print, copy, or quote secret values from any existing example/config file; refer to such files by path only.
+- First verify the current code state and say whether each item is open, partly fixed, or fixed. For every fix: write a failing test first, then fix, then show it passes.
+- Small commits, one concern per commit, descriptive messages. Never rewrite git history, force-push, or delete branches. Do not bundle vendor/STIG files with code changes.
+- Do NOT approve any STIG rule. All real rule files stay `status: draft`. Approval is a human decision. Tests use clearly labeled synthetic rules only.
+- The name `profiles` already means device role in the engine; never reuse it for assessment levels.
+- Every phase report: files changed, tests added (name + what each proves), full test results, coverage delta, unverified assumptions, remaining risks.
+
+# AGREED DESIGN
+Two assessment levels on two independent axes:
+1. WHICH controls: `standard` = a human-selected minimum-security subset; `pro` = additional/stricter controls.
+2. HOW DEEP: Standard checks mostly verify presence/absence of required configuration (running-config only). Pro checks verify HOW and WHERE it is applied (interfaces, VLANs, conditions) and may need more evidence and interface roles.
+One rule can carry both depths. Output is a table with a Standard column (minimum security) and a Pro column (recommendations to raise security). The overall "minimum security" verdict is derived ONLY from the Standard column. A Standard PASS means "required configuration is present", never "control is fully effective".
+
+# PHASE 1 — Engine bug fixes (netagent/stig_assessment.py)
+1.1 Verified bug (~line 244): `raw_line.lstrip(" \\t")` also strips the letters `t` and backslashes, so top-level lines starting with `t` (e.g. `tacacs server T1`) get indent 1 and their children (`address ipv4 ...`) are detached. Repro: config `!\ntacacs server T1\n address ipv4 192.0.2.1\n!` -> `_has_config_path(tree, ["tacacs server t1","address ipv4 192.0.2.1"])` returns False. Fix indentation (spaces and real tabs only). Tests: tacacs server, `track`, `transport`-prefixed children, tabs, mixed indent, with and without `!` separators.
+1.2 `assess()` sorts severity alphabetically. Use rank critical>high>medium>low, then control_id, everywhere.
+1.3 Waivers are global by control_id. Require scope: `hostnames: [...]` or an explicit `"*"` (flagged in the report as wildcard). Reject unscoped waivers with a clear error. Expired waivers are ignored and listed as "expired waiver" in the report.
+1.4 `config_line_present` matches any indented line and banner text. Add `context` (default `global` = top-level lines only). Treat `banner ... <delim> ... <delim>` (any delimiter) as an opaque block excluded from line/path/regex checks. Test a banner containing a command-like phrase.
+1.5 `parse_ios_show_version` recognizes only 2960-X/XR/L. Always return the raw model plus `family_status` = supported | out_of_scope_model | unknown. Out-of-scope models (older 2960, 2960-S, 2960-CX, 2960-Plus, etc.) must yield UNKNOWN with an explicit reason, never PASS. Verify the STIG scope text in the bundled XCCDF/overview before deciding the model list and cite the file in a comment.
+1.6 Remove any dependency of tests/tools on a real-looking example config: create a synthetic fixture `examples/configs/stig-sample-sw1.cfg` (same structure: AAA, tacacs/radius, vty+ACL, access/trunk/voice interfaces; synthetic values only), rename `tools/test_stig_config.py` to `tools/stig_config_smoke.py` (not a test by name), point it at the synthetic fixture, add a minimal unit test. Do not read or print the old file's contents.
+Acceptance: new tests fail before / pass after; existing PASS/FAIL behavior unchanged. STOP.
+
+# PHASE 2 — Interface role classification (the "scan" stage)
+2.1 Module `netagent/assess/interfaces.py` parses interface blocks from the (fixed) config tree. Per interface: name, kind (physical|port-channel|svi|loopback|routed|other), admin shutdown state, mode (access|trunk|dynamic_auto|dynamic_desirable|routed|none), access VLAN, native VLAN, allowed VLANs, voice VLAN present, channel-group membership, description, `evidence` lines used.
+2.2 Roles: `access_host`, `access_voice`, `trunk`, `dynamic` (no static mode; the 2960 default is dynamic auto — report it, NEVER treat as access), `routed_or_svi`, `shutdown_unused`, `unknown`. Never guess `uplink`: support an optional operator file `data/roles/<hostname>.json` (document the schema) mapping interface -> {role: uplink|host|ap|phone|server|unused, note}; operator roles override inferred ones and are labeled `source: operator`. CDP/LLDP evidence may only be a hint labeled `source: hint`, never proof. Ambiguous => `unknown`.
+2.3 New check strategy `for_each_interface` with `scope` {roles, kinds, exclude_shutdown} and a per-interface sub-check (reuse existing types). Aggregation: PASS only if every in-scope interface passes AND no candidate interface has role `unknown`; any unknown-role candidate => UNKNOWN listing interface names (capped, with count); failing interfaces => FAIL listing names.
+2.4 Report section "Interface inventory" (counts per role, list of unknown-role interfaces). No secrets.
+2.5 Tests on a synthetic multi-interface fixture: access, access+voice, trunk, dynamic default, shutdown, port-channel, SVI, operator override, unknown. Include: a synthetic rule "BPDU guard on access ports" passes on classified ports but yields UNKNOWN because one interface role is unknown.
+STOP with the classification table for the fixture.
+
+# PHASE 3 — Verdict semantics and exit codes
+3.1 Add `can_pass` and `can_fail` booleans to every check (default true; both false is invalid -> use `manual_review`). If a check would PASS but `can_pass` is false, downgrade to MANUAL; if it would FAIL but `can_fail` is false, downgrade to MANUAL. Record `downgraded_from`. Document that "can only prove failure" checks (e.g. Telnet allowed on vty) are valuable.
+3.2 Separate states strictly: UNKNOWN = evidence missing/unparsable/model out of verified scope (tool could not decide); MANUAL = evidence present but human judgment required. Count and report them separately; never merge.
+3.3 Exit codes. Precedence: 1 invalid policy or runtime error; 2 any FAIL in the Standard column at/above `--fail-on` (default `high`); 3 no qualifying FAIL but verdict INCOMPLETE because of UNKNOWN (unless `--allow-unknown`); 3 for MANUAL only with `--strict-manual`; else 0. Pro-column FAILs affect the exit code only with `--fail-on-pro <severity>`. A FAIL must never be masked by UNKNOWN/MANUAL. Table-driven test over all combinations plus a documented matrix.
+STOP.
+
+# PHASE 4 — Two-level rule schema and loader
+4.1 Approved-rule schema (backward compatible; there are currently 0 approved real rules):
+```
+level: "standard" | "pro"            # human decision, REQUIRED for approved rules
+standard_check: {strategy..., can_pass, can_fail}   # presence depth; optional
+pro_check:      {strategy..., can_pass, can_fail}   # applied depth; optional
+recommendation: "own-wording advice for the Pro column"   # required if pro_check exists
+rationale: "why it matters" (own wording)
+```
+Validation: `level: standard` => `standard_check` required, `pro_check` optional; `level: pro` => `pro_check` required, `standard_check` forbidden; at least one check; unknown keys rejected.
+4.2 `evaluate_rule_levels(rule, device, config, evidence, roles, waivers, today) -> RuleRow` with `standard` and `pro` cells {status, detail, depth: presence|applied, downgraded_from?}. A missing cell is None. Waivers apply per device and per control to the affected cell (status WAIVED).
+4.3 Option `--level standard|pro` (default `pro`): `standard` evaluates only Standard cells (Pro column rendered "not run"). Pro never changes the minimum verdict.
+4.4 Pro checks needing roles return UNKNOWN (listing interfaces) when a candidate interface role is unknown.
+Tests: all invalid schema combinations, standard-only rule, pro-only rule, dual rule, waiver scoping, `--level standard` leaves Pro unevaluated.
+STOP.
+
+# PHASE 5 — Dual-column report and minimum-security verdict
+5.1 JSON is the source of truth. Row: `control_id, stig_id, stig_part, severity, title, standard: {status, detail, depth}|null, pro: {status, detail, depth, recommendation}|null, evidence_refs[]`. Header: device info, catalog version, run metadata, verdict block.
+5.2 Minimum-security verdict from Standard cells of applicable `level: standard` rules ONLY. Precedence: NOT_ACHIEVED (any FAIL) > INCOMPLETE (no FAIL but any UNKNOWN/MANUAL) > ACHIEVED_WITH_WAIVERS > ACHIEVED. Zero applicable Standard rules => NO_RULES (never ACHIEVED). NOT_APPLICABLE rules are excluded from the calculation but listed with reasons. Include counts: applicable/evaluated/pass/fail/unknown/manual/waived/not-applicable.
+5.3 Markdown and HTML renderers. Columns: control | severity | Standard (minimum) | Pro (raise the level). Fixed Persian cell labels: ✅ برقرار, ❌ ناموفق, ❓ داده ناقص, ✋ بازبینی دستی, ⚪ استثنا, ➖ ندارد, نامرتبط. Verdict labels: حداقل امنیت برقرار است / حداقل امنیت برقرار نیست / ارزیابی ناقص / برقرار با استثنا / هیچ قانون Standard فعالی وجود ندارد. Fixed disclaimer under the Standard column, verbatim: «پاس‌شدن این ستون یعنی تنظیمات حداقلی در کانفیگ وجود دارد؛ نحوه اعمال روی پورت‌ها بررسی نشده است.» The Pro column shows recommendation + reason + "N of M" counts; NEVER a percentage or single score.
+5.4 Order: Standard FAIL first, then UNKNOWN/MANUAL, then the rest; within a group by severity rank then control_id. At the top: "fix these first to reach the minimum" (Standard FAILs).
+5.5 Render safety: HTML-escape ALL dynamic text, escape `|` and newlines in Markdown cells, RTL layout with control IDs/commands kept LTR (`dir="ltr"`/`<bdi>`), no external resources or scripts, never output secrets (apply the redactor to any config text shown).
+Tests: golden files (Markdown and HTML) covering every status; verdict-matrix test incl. NO_RULES, INCOMPLETE, ACHIEVED_WITH_WAIVERS, expired waiver; XSS test with `<script>` inside a banner line; ordering test.
+STOP with a rendered synthetic sample.
+
+# PHASE 6 — Read-only evidence collection (Cisco)
+6.1 Fixed allowlist of commands: `show version`, `show running-config`, `show interfaces status`, `show vlan brief`, `show cdp neighbors detail`, `show lldp neighbors detail`. Enforce in code; refuse anything else (tested). Store each output as a separate file next to the config with private permissions; on Windows do not claim 0600 protection — warn clearly or tighten ACLs via fixed-argument `icacls`.
+6.2 Evidence loader that maps files to the engine's evidence keys; missing files => UNKNOWN downstream.
+Tests with mocked transport only. STOP.
+
+# PHASE 7 — Standard-level proposal (HUMAN approves; you only propose)
+7.1 From the real catalog (118 controls) propose 20-30 candidates for `level: standard` and a separate Pro list. Select from the actual check text, not assumptions. For each: control_id, STIG part, severity, one-line reason it belongs to minimum security, proposed presence-depth check, whether running-config alone suffices, recommended `can_pass`/`can_fail`, known false-pass/false-fail risks, and the Pro-depth idea.
+7.2 Write `docs/standard-level-proposal.md` as a review table. Leave every rule `status: draft`; you may add `level_proposed` but NOT `level` and NOT `status: approved`.
+STOP and wait for my decisions.
+
+# PHASE 8 — CKLB / XCCDF export and CLI
+8.0 If a real, sanitized sample `.cklb` from DISA STIG Viewer 3 is not in the repo, STOP and ask for it. Do not invent the schema.
+8.1 CKLB: built from the catalog (all controls of the selected STIG part appear; unassessed ones as not reviewed). Status = result of the deepest depth evaluated for the chosen `--level`. Mapping: PASS->not_a_finding; FAIL->open; UNKNOWN/MANUAL->not_reviewed; NOT_APPLICABLE->not_applicable; WAIVED->not_reviewed with waiver details in comments (never auto not_a_finding). Comments contain both cells: "Standard: <status> — <detail> / Pro: <status> — <detail>"; a presence-only PASS must say "presence only". Validate structure against the sample.
+8.2 XCCDF 1.1 TestResult export as a second format (`--format cklb|xccdf|md|html|json`).
+8.3 CLI `assess`: `--level`, `--fail-on`, `--fail-on-pro`, `--allow-unknown`, `--strict-manual`, `--roles-dir`, `--waivers`, `--format`, `--out`; with 0 approved rules print "nothing executed", verdict NO_RULES, exit code per Phase 3.
+8.4 README: two levels/axes, verdict states, why Standard PASS means presence only, exit-code matrix, and a "no live device testing yet" warning.
+Acceptance: end-to-end test from an evidence directory to md/html/json/cklb/xccdf using synthetic approved test rules (in tests only). STOP.
+
+# PHASE 9 — Safer apply (independent; run when I ask)
+First re-verify each item against the current code; implement only what is open.
+9.1 `clean_candidate` currently accepts `no username admin`, `crypto key zeroize rsa`, `line vty`+`transport input none`, `shutdown`, `no ip route 0.0.0.0 ...`, `tclsh`, `clear ...`, `debug ...`. Implement a hard-deny list (tclsh, clear, debug, crypto key zeroize, reload, erase, format, delete, copy, write, archive...), a management-risk classifier (vty/line/aaa/username/enable/default route/management-interface shutdown/management ACL/ssh/crypto key) requiring an extra typed confirmation per risky group shown in the preview, and a configurable allowlist file. Test every example.
+9.2 Write the deployment manifest with status `in_progress` BEFORE any device change; finalize in `finally` (success|rolled_back|rollback_failed|aborted). Test KeyboardInterrupt and connection drop mid-apply.
+9.3 `_start_safety_timer` uses `configure revert timer 5`; do not assume the syntax is right. Keep the exact command string in one constant, make the timer capability-gated per platform, fail closed with a clear message when unsupported, keep `TODO(verify-on-device)`. Never claim it works on Catalyst 2960-X without evidence.
+9.4 Rollback must compare the current config hash with the recorded post-apply hash and require extra typed confirmation if they differ.
+9.5 Approval preview must redact only the secret VALUE, not the whole line.
+STOP.
+
+# PHASE 10 — Repo hygiene, CI, docs
+10.1 Remove from version control (keep locally via .gitignore): `found.json`, `found-nmap.json` (add sanitized samples under `examples/`), the root ZIP, the duplicated `resorce/` trees (root and `netagent/resorce/`, misspelled), and the third-party Cisco PDF (reference by URL). Keep exactly ONE copy of the three public DISA XCCDF files under `standards/disa-cisco-ios-switch/Y26M04/source/` with a `SHA256SUMS` file. Update `.gitignore` (`standards/_downloads/`, `*.zip`, `found*.json`, `data/`) and every path in tools/tests/docs. The catalog must regenerate byte-identically (show the diff command and result).
+10.2 `tools/check_no_secrets.py` (stdlib): fail on `enable secret|password <digit>`, `username .* (secret|password)`, `key 7`, `snmp-server community`, private-key blocks, and IPv4 outside RFC 5737/loopback/documentation ranges in `examples/` and `tests/fixtures/`; allowlist file with a justification per entry; unit tests.
+10.3 `.github/workflows/ci.yml`: unittest, ruff, secret check, catalog regeneration check (byte-identical), on push and pull_request. Minimal ruff/mypy config; do not fail the build on pre-existing mypy errors, report the count.
+10.4 Final report: before/after table per finding (tree-indent bug, exit codes, waiver scope, line context/banners, repo hygiene, CI) and remaining open items.
+
+# DEFINITION OF DONE (every phase)
+Tests green on a clean clone; new tests fail before and pass after; no network in tests; no secrets or real data added; docs updated; unverified assumptions listed explicitly.

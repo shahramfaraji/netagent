@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
 
 STATUSES = ("PASS", "FAIL", "UNKNOWN", "MANUAL", "NOT_APPLICABLE", "WAIVED")
+SEVERITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 AUTOMATABLE_LEVELS = {"automated", "semi_automated"}
 
 
@@ -33,6 +34,39 @@ class AssessmentRule:
     fail_condition: Any = None
     remediation: str | None = None
     source_ref: dict[str, Any] = field(default_factory=dict)
+    level: str | None = None
+    standard_check: dict[str, Any] | None = None
+    pro_check: dict[str, Any] | None = None
+    recommendation: str | None = None
+    rationale: str | None = None
+    stig_id: str | None = None
+    stig_part: str | None = None
+    evidence_refs: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CheckCell:
+    status: str
+    detail: str
+    depth: str
+    recommendation: str | None = None
+    downgraded_from: str | None = None
+
+
+@dataclass(frozen=True)
+class RuleRow:
+    control_id: str
+    rule_id: str
+    title: str
+    severity: str
+    standard: CheckCell | None
+    pro: CheckCell | None
+    level: str | None = None
+    rationale: str | None = None
+    source_ref: dict[str, Any] = field(default_factory=dict)
+    stig_id: str | None = None
+    stig_part: str | None = None
+    evidence_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -41,6 +75,7 @@ class Waiver:
     reason: str
     approved_by: str
     expires_on: date
+    hostnames: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -53,6 +88,7 @@ class AssessmentResult:
     detail: str
     remediation: str | None = None
     source_ref: dict[str, Any] = field(default_factory=dict)
+    downgraded_from: str | None = None
 
 
 @dataclass(frozen=True)
@@ -62,6 +98,100 @@ class DeviceContext:
     family: str | None = None
     show_version: str | None = None
     profiles: tuple[str, ...] = ()
+    roles_dir: str | Path | None = None
+    operator_roles: dict[str, dict[str, str]] | None = None
+
+
+def _validate_capabilities(strategy: dict[str, Any], path: Path | str) -> None:
+    for key in ("can_pass", "can_fail"):
+        if key in strategy and not isinstance(strategy[key], bool):
+            raise ValueError(f"{path}: {key} must be a boolean")
+    if strategy.get("can_pass", True) is False and strategy.get("can_fail", True) is False and strategy.get("type") != "manual_review":
+        raise ValueError(f"{path}: both can_pass and can_fail cannot be false; use manual_review")
+
+
+def _apply_capability_policy(result: AssessmentResult, strategy: dict[str, Any]) -> AssessmentResult:
+    can_pass = strategy.get("can_pass", True)
+    can_fail = strategy.get("can_fail", True)
+    if can_pass is False and can_fail is False:
+        return replace(result, status="MANUAL", detail=result.detail + " Check cannot prove either pass or fail; manual review required.", downgraded_from=result.status if result.status in {"PASS", "FAIL"} else result.downgraded_from)
+    if result.status == "PASS" and not can_pass:
+        return replace(result, status="MANUAL", detail=result.detail + " Downgraded from PASS because this check cannot prove compliance.", downgraded_from="PASS")
+    if result.status == "FAIL" and not can_fail:
+        return replace(result, status="MANUAL", detail=result.detail + " Downgraded from FAIL because this check cannot prove non-compliance.", downgraded_from="FAIL")
+    return result
+
+
+def _validate_strategy_details(strategy: dict[str, Any], path: Path) -> None:
+    """Validate strategy-specific fields for each independent Standard/Pro check."""
+    kind = strategy.get("type")
+    if kind == "config_line_present":
+        if not isinstance(strategy.get("line"), str):
+            raise ValueError(f"{path}: config_line_present requires a line string")
+        if strategy.get("context", "global") not in {"global", "any"}:
+            raise ValueError(f"{path}: config_line_present context must be global or any")
+    elif kind in {"config_paths_present", "config_paths_and_regex"}:
+        paths = strategy.get("paths")
+        if (not isinstance(paths, list) or not paths
+                or any(not isinstance(item, list) or not item
+                       or any(not isinstance(line, str) or not line.strip() for line in item)
+                       for item in paths)):
+            raise ValueError(f"{path}: {kind} requires non-empty paths of non-empty strings")
+        if kind == "config_paths_and_regex":
+            patterns = strategy.get("patterns")
+            if (not isinstance(patterns, list) or not patterns
+                    or any(not isinstance(item, dict) or not isinstance(item.get("pattern"), str)
+                           or not isinstance(item.get("description"), str) for item in patterns)):
+                raise ValueError(f"{path}: config_paths_and_regex requires patterns with pattern and description")
+            for item in patterns:
+                try:
+                    re.compile(item["pattern"], re.M)
+                except re.error as exc:
+                    raise ValueError(f"{path}: invalid combined-check regex: {exc}") from exc
+    elif kind == "common_criteria_policy":
+        if not isinstance(strategy.get("directive"), str) or not strategy["directive"].strip():
+            raise ValueError(f"{path}: common_criteria_policy requires a directive")
+    elif kind == "admin_auth_server_count":
+        minimum = strategy.get("min_count", 2)
+        if not isinstance(minimum, int) or isinstance(minimum, bool) or minimum < 1:
+            raise ValueError(f"{path}: admin_auth_server_count requires positive min_count")
+    elif kind == "config_regex_count":
+        pattern, minimum = strategy.get("pattern"), strategy.get("min_count")
+        if not isinstance(pattern, str) or not isinstance(minimum, int) or isinstance(minimum, bool) or minimum < 1:
+            raise ValueError(f"{path}: config_regex_count requires pattern and positive min_count")
+        if "partial_note" in strategy and not isinstance(strategy["partial_note"], str):
+            raise ValueError(f"{path}: config_regex_count partial_note must be a string")
+        try:
+            re.compile(pattern, re.M)
+        except re.error as exc:
+            raise ValueError(f"{path}: invalid config count regex: {exc}") from exc
+    elif kind == "manual_review":
+        if not isinstance(strategy.get("reason"), str):
+            raise ValueError(f"{path}: manual_review requires a reason")
+    elif kind == "evidence_regex":
+        if not isinstance(strategy.get("evidence_key"), str) or not isinstance(strategy.get("pattern"), str):
+            raise ValueError(f"{path}: evidence_regex requires evidence_key and pattern")
+        try:
+            re.compile(strategy["pattern"], re.M)
+        except re.error as exc:
+            raise ValueError(f"{path}: invalid evidence regex: {exc}") from exc
+    elif kind == "for_each_interface":
+        scope, check = strategy.get("scope"), strategy.get("check")
+        if not isinstance(scope, dict) or not scope or set(scope) - {"roles", "kinds", "exclude_shutdown"}:
+            raise ValueError(f"{path}: for_each_interface requires a valid scope object")
+        if "roles" in scope and (not isinstance(scope["roles"], list) or any(not isinstance(v, str) for v in scope["roles"])):
+            raise ValueError(f"{path}: for_each_interface scope.roles must be a list of strings")
+        if "kinds" in scope and (not isinstance(scope["kinds"], list) or any(not isinstance(v, str) for v in scope["kinds"])):
+            raise ValueError(f"{path}: for_each_interface scope.kinds must be a list of strings")
+        if "exclude_shutdown" in scope and not isinstance(scope["exclude_shutdown"], bool):
+            raise ValueError(f"{path}: for_each_interface exclude_shutdown must be boolean")
+        supported = {"config_line_present", "config_paths_present", "config_paths_and_regex", "config_regex_count",
+                     "common_criteria_policy", "admin_auth_server_count", "emergency_local_account",
+                     "vty_management_acl", "evidence_regex", "manual_review"}
+        if not isinstance(check, dict) or check.get("type") not in supported:
+            raise ValueError(f"{path}: for_each_interface requires a supported non-recursive check object")
+        _validate_capabilities(check, path)
+        _validate_strategy_details(check, path)
 
 
 def load_approved_rules(root: str | Path, profiles: Iterable[str] = ()) -> list[AssessmentRule]:
@@ -82,27 +212,98 @@ def load_approved_rules(root: str | Path, profiles: Iterable[str] = ()) -> list[
             continue
         if raw.get("automation_level") not in AUTOMATABLE_LEVELS:
             continue
-        required = ("control_id", "rule_id", "title", "severity", "target_platform", "check_strategy")
+        allowed_keys = {
+            "status", "automation_level", "control_id", "rule_id", "title", "severity", "target_platform",
+            "target_families", "profiles", "evidence_requirements", "level", "standard_check", "pro_check",
+            "recommendation", "rationale", "pass_condition", "fail_condition", "remediation", "source_ref",
+            "stig_id", "stig_part", "evidence_refs",
+        }
+        unknown_keys = sorted(set(raw) - allowed_keys)
+        if unknown_keys:
+            raise ValueError(f"{path}: unknown approved-rule key(s): {', '.join(unknown_keys)}")
+        required = ("control_id", "rule_id", "title", "severity", "target_platform", "level")
         missing = [key for key in required if not raw.get(key)]
         if missing:
             raise ValueError(f"{path}: approved rule missing required fields: {', '.join(missing)}")
+        level = raw.get("level")
+        standard_check = raw.get("standard_check")
+        pro_check = raw.get("pro_check")
+        if level not in {"standard", "pro"}:
+            raise ValueError(f"{path}: level must be standard or pro")
+        if level == "standard" and not isinstance(standard_check, dict):
+            raise ValueError(f"{path}: level standard requires standard_check")
+        if level == "pro" and (not isinstance(pro_check, dict) or standard_check is not None):
+            raise ValueError(f"{path}: level pro requires pro_check and forbids standard_check")
+        if standard_check is not None and not isinstance(standard_check, dict):
+            raise ValueError(f"{path}: standard_check must be an object")
+        if pro_check is not None and not isinstance(pro_check, dict):
+            raise ValueError(f"{path}: pro_check must be an object")
+        if standard_check is None and pro_check is None:
+            raise ValueError(f"{path}: at least one check is required")
+        if pro_check is not None and (not isinstance(raw.get("recommendation"), str) or not raw["recommendation"].strip()):
+            raise ValueError(f"{path}: recommendation is required when pro_check exists")
         severity = str(raw["severity"]).lower()
         if severity not in {"critical", "high", "medium", "low"}:
             raise ValueError(f"{path}: unsupported severity {severity!r}")
         rule_profiles = tuple(raw.get("profiles") or ())
         if selected_profiles and rule_profiles and not selected_profiles.intersection(rule_profiles):
             continue
-        strategy = raw["check_strategy"]
+        strategy = standard_check or pro_check
         supported_strategies = {
             "config_line_present", "config_paths_present", "config_paths_and_regex",
             "config_regex_count", "common_criteria_policy", "admin_auth_server_count",
             "emergency_local_account", "vty_management_acl", "evidence_regex",
-            "manual_review",
+            "manual_review", "for_each_interface",
         }
+        for extra_check in (standard_check, pro_check):
+            if extra_check is not None and (not isinstance(extra_check, dict) or extra_check.get("type") not in supported_strategies):
+                raise ValueError(f"{path}: unsupported standard_check or pro_check strategy")
+            if extra_check is not None:
+                _validate_capabilities(extra_check, path)
+                _validate_strategy_details(extra_check, path)
+                if extra_check.get("type") == "config_line_present" and not isinstance(extra_check.get("line"), str):
+                    raise ValueError(f"{path}: config_line_present requires a line string")
+                if extra_check.get("type") in {"config_paths_present", "config_paths_and_regex"}:
+                    paths = extra_check.get("paths")
+                    if not isinstance(paths, list) or not paths or any(not isinstance(p, list) or not p or any(not isinstance(line, str) or not line.strip() for line in p) for p in paths):
+                        raise ValueError(f"{path}: path check requires non-empty paths of non-empty strings")
+                if extra_check.get("type") == "config_regex_count":
+                    minimum = extra_check.get("min_count")
+                    if not isinstance(extra_check.get("pattern"), str) or not isinstance(minimum, int) or isinstance(minimum, bool) or minimum < 1:
+                        raise ValueError(f"{path}: config_regex_count requires pattern and positive min_count")
+                if extra_check.get("type") == "evidence_regex" and (not isinstance(extra_check.get("evidence_key"), str) or not isinstance(extra_check.get("pattern"), str)):
+                    raise ValueError(f"{path}: evidence_regex requires evidence_key and pattern")
         if not isinstance(strategy, dict) or strategy.get("type") not in supported_strategies:
             raise ValueError(f"{path}: unsupported check_strategy")
-        if strategy["type"] == "config_line_present" and not isinstance(strategy.get("line"), str):
-            raise ValueError(f"{path}: config_line_present requires a line string")
+        _validate_capabilities(strategy, path)
+        if strategy.get("type") == "for_each_interface":
+            scope = strategy.get("scope")
+            check = strategy.get("check")
+            if not isinstance(scope, dict) or not scope or set(scope) - {"roles", "kinds", "exclude_shutdown"}:
+                raise ValueError(f"{path}: for_each_interface requires a valid scope object")
+            if "roles" in scope and (not isinstance(scope["roles"], list) or any(not isinstance(v, str) for v in scope["roles"])):
+                raise ValueError(f"{path}: for_each_interface scope.roles must be a list of strings")
+            if "kinds" in scope and (not isinstance(scope["kinds"], list) or any(not isinstance(v, str) for v in scope["kinds"])):
+                raise ValueError(f"{path}: for_each_interface scope.kinds must be a list of strings")
+            if "exclude_shutdown" in scope and not isinstance(scope["exclude_shutdown"], bool):
+                raise ValueError(f"{path}: for_each_interface scope.exclude_shutdown must be boolean")
+            if not isinstance(check, dict) or check.get("type") not in supported_strategies - {"for_each_interface"}:
+                raise ValueError(f"{path}: for_each_interface requires a supported non-recursive check object")
+            _validate_capabilities(check, path)
+            if check.get("type") == "config_line_present" and not isinstance(check.get("line"), str):
+                raise ValueError(f"{path}: for_each_interface config_line_present check requires a line string")
+            if check.get("type") in {"config_paths_present", "config_paths_and_regex"}:
+                paths = check.get("paths")
+                if not isinstance(paths, list) or not paths or any(not isinstance(p, list) or not p for p in paths):
+                    raise ValueError(f"{path}: for_each_interface path check requires non-empty paths")
+            if check.get("type") == "config_regex_count":
+                if not isinstance(check.get("pattern"), str) or not isinstance(check.get("min_count"), int) or isinstance(check.get("min_count"), bool) or check["min_count"] < 1:
+                    raise ValueError(f"{path}: for_each_interface config_regex_count requires pattern and positive min_count")
+        if strategy["type"] == "config_line_present":
+            if not isinstance(strategy.get("line"), str):
+                raise ValueError(f"{path}: config_line_present requires a line string")
+            if strategy.get("context", "global") not in {"global", "any"}:
+                raise ValueError(f"{path}: config_line_present context must be global or any")
         if strategy["type"] in {"config_paths_present", "config_paths_and_regex"}:
             paths = strategy.get("paths")
             if (not isinstance(paths, list) or not paths
@@ -166,6 +367,14 @@ def load_approved_rules(root: str | Path, profiles: Iterable[str] = ()) -> list[
             fail_condition=raw.get("fail_condition"),
             remediation=raw.get("remediation"),
             source_ref=raw.get("source_ref") or {},
+            level=level,
+            standard_check=dict(standard_check) if standard_check is not None else None,
+            pro_check=dict(pro_check) if pro_check is not None else None,
+            recommendation=raw.get("recommendation"),
+            rationale=raw.get("rationale"),
+            stig_id=raw.get("stig_id"),
+            stig_part=raw.get("stig_part"),
+            evidence_refs=tuple(raw.get("evidence_refs") or ()),
         ))
     ids = [rule.control_id for rule in rules]
     if len(ids) != len(set(ids)):
@@ -184,14 +393,19 @@ def load_waivers(path: str | Path | None) -> dict[str, Waiver]:
     for item in entries:
         if not isinstance(item, dict):
             raise ValueError("each waiver must be an object")
-        required = ("control_id", "reason", "approved_by", "expires_on")
+        required = ("control_id", "reason", "approved_by", "expires_on", "hostnames")
         if any(not item.get(key) for key in required):
-            raise ValueError("waiver requires control_id, reason, approved_by, expires_on")
+            raise ValueError("waiver requires control_id, reason, approved_by, expires_on, and hostnames")
+        hostnames = item.get("hostnames")
+        if not isinstance(hostnames, list) or not hostnames or any(not isinstance(host, str) or not host.strip() for host in hostnames):
+            raise ValueError("waiver hostnames must be a non-empty list of hostnames or [\"*\"]")
+        if "*" in hostnames and hostnames != ["*"]:
+            raise ValueError("wildcard waiver scope must be exactly [\"*\"]")
         try:
             expiry = date.fromisoformat(item["expires_on"])
         except (TypeError, ValueError) as exc:
             raise ValueError(f"invalid waiver expires_on for {item.get('control_id')}") from exc
-        waiver = Waiver(item["control_id"], item["reason"], item["approved_by"], expiry)
+        waiver = Waiver(item["control_id"], item["reason"], item["approved_by"], expiry, tuple(hostnames))
         if waiver.control_id in out:
             raise ValueError(f"duplicate waiver for {waiver.control_id}")
         out[waiver.control_id] = waiver
@@ -201,14 +415,20 @@ def load_waivers(path: str | Path | None) -> dict[str, Waiver]:
 def parse_ios_show_version(text: str | None) -> dict[str, str | None]:
     """Extract only clear model/version tokens; never infer a family from vague output."""
     if not text:
-        return {"model": None, "version": None, "family": None}
+        return {"model": None, "version": None, "family": None, "family_status": "unknown"}
     model = None
     version = None
-    model_match = re.search(r"(?im)^\s*Model Number\s*:\s*(WS-C\d{4,5}[A-Z0-9-]*)", text)
+    # Preserve the model token from the explicit field, including identifiers
+    # such as WS-C2960+24TC-L. The project supports only 2960-X/XR/L families.
+    model_match = re.search(
+        r"(?im)^\s*Model Number\s*:\s*([A-Za-z0-9][A-Za-z0-9+._/-]*)", text
+    )
     if not model_match:
-        model_match = re.search(r"(?im)^\s*(?:cisco\s+)?(WS-C\d{4,5}[A-Z0-9-]*)\s+", text)
+        model_match = re.search(
+            r"(?im)^\s*(?:cisco\s+)?(WS-C[0-9A-Z+-]+)\s+", text
+        )
     if model_match:
-        model = model_match.group(1).upper()
+        model = model_match.group(1).strip().upper()
     version_match = re.search(r"(?im)^Cisco IOS Software.*?Version\s+([^,\s]+)", text)
     if not version_match:
         version_match = re.search(r"(?im)^Cisco IOS XE Software.*?Version\s+([^,\s]+)", text)
@@ -222,7 +442,9 @@ def parse_ios_show_version(text: str | None) -> dict[str, str | None]:
             family = "Catalyst 2960-X"
         elif re.match(r"WS-C2960L", model):
             family = "Catalyst 2960-L"
-    return {"model": model, "version": version, "family": family}
+    # Scope evidence: resorce/Cisco switch and router/U_Cisco_IOS_Switch_RTR_V3R3_Manual_STIG/U_Cisco_IOS_Switch_RTR_STIG_V3R3_Manual-xccdf.xml titles this benchmark "Cisco IOS Switch RTR" but does not enumerate supported models. The project scope is intentionally limited to 2960-X/XR/L.
+    family_status = "supported" if family else ("out_of_scope_model" if model else "unknown")
+    return {"model": model, "version": version, "family": family, "family_status": family_status}
 
 
 def _result(rule: AssessmentRule, status: str, detail: str) -> AssessmentResult:
@@ -230,8 +452,33 @@ def _result(rule: AssessmentRule, status: str, detail: str) -> AssessmentResult:
                             status, detail, rule.remediation, rule.source_ref)
 
 
+def _strip_banner_blocks(config: str) -> str:
+    """Remove IOS banner commands and bodies, including inline one-line banners."""
+    output: list[str] = []
+    delimiter: str | None = None
+    for line in config.splitlines():
+        if delimiter is not None:
+            if delimiter in line:
+                delimiter = None
+            continue
+
+        # The delimiter is the first token after the banner type. IOS permits
+        # the closing delimiter on the same line or on a later line.
+        match = re.match(r"^[ \t]*banner\s+\S+\s+(\^C|.)", line, re.IGNORECASE)
+        if match:
+            delimiter = match.group(1)
+            banner_body = line[match.end():]
+            if delimiter in banner_body:
+                delimiter = None
+            continue
+
+        output.append(line)
+    return "\n".join(output)
+
+
 def _config_tree(config: str) -> list[dict[str, Any]]:
     """Parse indented IOS configuration into a small hierarchy for context checks."""
+    config = _strip_banner_blocks(config)
     roots: list[dict[str, Any]] = []
     stack: list[tuple[int, dict[str, Any]]] = []
     for raw_line in config.splitlines():
@@ -241,8 +488,8 @@ def _config_tree(config: str) -> list[dict[str, Any]]:
         if raw_line.lstrip().startswith("!"):
             stack.clear()
             continue
-        indent = len(raw_line) - len(raw_line.lstrip(" \\t"))
-        node = {"line": re.sub(r"\s+", " ", stripped).casefold(), "children": []}
+        indent = len(raw_line) - len(raw_line.lstrip(" \t"))
+        node = {"line": re.sub(r"\s+", " ", stripped).casefold(), "raw_line": stripped, "children": []}
         while stack and stack[-1][0] >= indent:
             stack.pop()
         if stack:
@@ -265,7 +512,7 @@ def _has_config_path(nodes: list[dict[str, Any]], path: list[str]) -> bool:
     return descend(nodes, 0)
 
 
-def evaluate_rule(
+def _evaluate_rule_impl(
     rule: AssessmentRule,
     device: DeviceContext,
     config: str | None,
@@ -276,6 +523,16 @@ def evaluate_rule(
     """Evaluate one approved rule; absent or ambiguous evidence never yields PASS."""
     today = today or date.today()
     evidence = evidence or {}
+    # A supplied show-version model outside the verified project scope must
+    # never be assessed as supported merely because DeviceContext.family was set.
+    if device.platform == rule.target_platform and device.show_version:
+        parsed_model = parse_ios_show_version(device.show_version)
+        if parsed_model.get("family_status") == "out_of_scope_model":
+            return _result(
+                rule,
+                "UNKNOWN",
+                f"Detected model {parsed_model.get('model')} is outside supported scope; supported families are Catalyst 2960-X/XR/L.",
+            )
     if waiver:
         if waiver.expires_on >= today:
             return _result(rule, "WAIVED", f"Approved by {waiver.approved_by}; expires {waiver.expires_on.isoformat()}: {waiver.reason}")
@@ -286,6 +543,9 @@ def evaluate_rule(
         family = parse_ios_show_version(device.show_version)["family"]
     if rule.target_families:
         if family is None:
+            parsed = parse_ios_show_version(device.show_version) if device.show_version else {"model": None, "family_status": "unknown"}
+            if parsed.get("family_status") == "out_of_scope_model":
+                return _result(rule, "UNKNOWN", f"Detected model {parsed.get('model')} is outside supported scope; supported families are Catalyst 2960-X/XR/L.")
             return _result(rule, "UNKNOWN", "Device family is not verified; provide family or recognizable show-version evidence.")
         if family not in rule.target_families:
             return _result(rule, "NOT_APPLICABLE", f"Verified device family {family!r} is outside the rule target families.")
@@ -295,11 +555,69 @@ def evaluate_rule(
             return _result(rule, "UNKNOWN", "Required evidence is missing: " + ", ".join(missing))
     strategy = rule.check_strategy or {}
     kind = strategy.get("type")
+    if kind == "for_each_interface":
+        if config is None or not config.strip():
+            return _result(rule, "UNKNOWN", "Configuration evidence is missing or empty; interface scope cannot be determined.")
+        from .assess.interfaces import classify_interfaces
+        scope = strategy["scope"]
+        inventory = classify_interfaces(config, hostname=device.hostname, roles_dir=device.roles_dir, operator_roles=device.operator_roles)
+        kinds = set(scope.get("kinds", ()))
+        roles = set(scope.get("roles", ()))
+        candidates = [
+            item for item in inventory
+            if (not kinds or item.kind in kinds)
+            and not (scope.get("exclude_shutdown", True) and item.admin_shutdown)
+            and (not roles or item.role in roles or item.role == "unknown")
+        ]
+        if not candidates:
+            return _result(rule, "NOT_APPLICABLE", "No interfaces matched the configured scope.")
+        unknown_roles = [item.name for item in candidates if item.role == "unknown"]
+        check = dict(strategy["check"])
+        if check.get("type") == "config_line_present":
+            check.setdefault("context", "any")
+        failed: list[str] = []
+        unknown_checks: list[str] = []
+        manual: list[str] = []
+        for interface in candidates:
+            if interface.role == "unknown":
+                continue
+            interface_config = "\n".join([f"interface {interface.name}", *[f" {line}" for line in interface.evidence[1:]]])
+            subrule = replace(rule, check_strategy=check, evidence_requirements=())
+            result = _apply_capability_policy(_evaluate_rule_impl(subrule, device, interface_config, evidence, None, today), check)
+            if result.status == "FAIL":
+                failed.append(interface.name)
+            elif result.status == "UNKNOWN":
+                unknown_checks.append(interface.name)
+            elif result.status == "MANUAL":
+                manual.append(interface.name)
+        if failed:
+            names = ", ".join(failed[:10])
+            suffix = f" (and {len(failed) - 10} more)" if len(failed) > 10 else ""
+            return _result(rule, "FAIL", f"Sub-check failed on {len(failed)} of {len(candidates)} in-scope interface(s): {names}{suffix}")
+        if unknown_roles:
+            names = ", ".join(unknown_roles[:10])
+            suffix = f" (and {len(unknown_roles) - 10} more)" if len(unknown_roles) > 10 else ""
+            return _result(rule, "UNKNOWN", f"Interface role is unknown for {len(unknown_roles)} of {len(candidates)} candidate interface(s): {names}{suffix}")
+        if unknown_checks:
+            names = ", ".join(unknown_checks[:10])
+            suffix = f" (and {len(unknown_checks) - 10} more)" if len(unknown_checks) > 10 else ""
+            return _result(rule, "UNKNOWN", f"Sub-check evidence is unknown on {len(unknown_checks)} of {len(candidates)} interface(s): {names}{suffix}")
+        if manual:
+            names = ", ".join(manual[:10])
+            suffix = f" (and {len(manual) - 10} more)" if len(manual) > 10 else ""
+            return _result(rule, "MANUAL", f"Sub-check requires manual review on {len(manual)} of {len(candidates)} interface(s): {names}{suffix}")
+        return _result(rule, "PASS", f"Sub-check passed on {len(candidates)} of {len(candidates)} in-scope interface(s).")
     if kind == "config_line_present":
         if config is None or not config.strip():
             return _result(rule, "UNKNOWN", "Configuration evidence is missing or empty.")
         expected = strategy["line"].strip()
-        lines = {line.strip() for line in config.splitlines() if line.strip() and not line.lstrip().startswith("!")}
+        clean_config = _strip_banner_blocks(config)
+        context = strategy.get("context", "global")
+        lines = {
+            line.strip() for line in clean_config.splitlines()
+            if line.strip() and not line.lstrip().startswith("!")
+            and (context == "any" or not line[:1].isspace())
+        }
         if expected in lines:
             return _result(rule, "PASS", f"Required configuration line is present: {expected}")
         return _result(rule, "FAIL", f"Required configuration line was not found: {expected}")
@@ -312,7 +630,7 @@ def evaluate_rule(
             rendered = [" -> ".join(path) for path in missing_paths]
             return _result(rule, "FAIL", "Missing configuration path(s): " + "; ".join(rendered))
         if kind == "config_paths_and_regex":
-            clean_config = "\n".join(line for line in config.splitlines() if not line.lstrip().startswith("!"))
+            clean_config = "\n".join(line for line in _strip_banner_blocks(config).splitlines() if not line.lstrip().startswith("!"))
             for item in strategy["patterns"]:
                 if not re.search(item["pattern"], clean_config, re.M):
                     return _result(rule, "FAIL", "Missing required configuration evidence: " + item["description"])
@@ -344,7 +662,7 @@ def evaluate_rule(
     if kind == "admin_auth_server_count":
         if config is None or not config.strip():
             return _result(rule, "UNKNOWN", "Configuration evidence is missing or empty.")
-        clean_config = "\n".join(line for line in config.splitlines() if not line.lstrip().startswith("!"))
+        clean_config = "\n".join(line for line in _strip_banner_blocks(config).splitlines() if not line.lstrip().startswith("!"))
         login_match = re.search(r"(?im)^[ \t]*aaa authentication login default group\s+(\S+)", clean_config)
         if not login_match:
             return _result(rule, "FAIL", "No default administrative login method referencing an authentication server group was found.")
@@ -428,7 +746,7 @@ def evaluate_rule(
     if kind == "config_regex_count":
         if config is None or not config.strip():
             return _result(rule, "UNKNOWN", "Configuration evidence is missing or empty.")
-        clean_lines = [line for line in config.splitlines() if not line.lstrip().startswith("!")]
+        clean_lines = [line for line in _strip_banner_blocks(config).splitlines() if not line.lstrip().startswith("!")]
         count = len(re.findall(strategy["pattern"], "\n".join(clean_lines), re.M))
         minimum = strategy["min_count"]
         if count < minimum:
@@ -457,6 +775,81 @@ def evaluate_rule(
     return _result(rule, "MANUAL", f"Unsupported or missing check strategy {kind!r}; human review required.")
 
 
+def evaluate_rule(
+    rule: AssessmentRule,
+    device: DeviceContext,
+    config: str | None,
+    evidence: dict[str, str] | None = None,
+    waiver: Waiver | None = None,
+    today: date | None = None,
+) -> AssessmentResult:
+    """Evaluate one rule with host-scoped waiver enforcement and expiry reporting."""
+    today = today or date.today()
+    scoped = waiver is not None and (device.hostname in waiver.hostnames or waiver.hostnames == ("*",))
+    active = scoped and waiver.expires_on >= today
+    expired = scoped and waiver.expires_on < today
+    result = _apply_capability_policy(_evaluate_rule_impl(rule, device, config, evidence, waiver if active else None, today), rule.check_strategy or {})
+    if expired:
+        result = replace(result, detail=result.detail + f" Expired waiver ignored (expired {waiver.expires_on.isoformat()}); result is not waived.")
+    elif active and waiver.hostnames == ("*",):
+        result = replace(result, detail=result.detail + " Explicit wildcard waiver scope (*) applies to all hosts.")
+    return result
+
+
+def evaluate_rule_levels(
+    rule: AssessmentRule,
+    device: DeviceContext,
+    config: str | None,
+    evidence: dict[str, str] | None = None,
+    roles: dict[str, dict[str, str]] | None = None,
+    waivers: dict[str, Waiver] | None = None,
+    today: date | None = None,
+    level: str = "pro",
+) -> RuleRow:
+    """Evaluate Standard and Pro cells independently; Standard remains the minimum verdict."""
+    if level not in {"standard", "pro"}:
+        raise ValueError("level must be 'standard' or 'pro'")
+    if roles is not None:
+        device = replace(device, operator_roles=roles)
+    standard_check = rule.standard_check
+    pro_check = rule.pro_check
+    if standard_check is None and pro_check is None and rule.check_strategy is not None:
+        # Compatibility for in-memory legacy rules; approved file schema is validated separately.
+        standard_check = rule.check_strategy
+    waiver = (waivers or {}).get(rule.control_id)
+
+    def evaluate_cell(check: dict[str, Any], depth: str, recommendation: str | None = None) -> CheckCell:
+        cell_rule = replace(rule, check_strategy=check)
+        result = evaluate_rule(cell_rule, device, config, evidence, waiver, today)
+        return CheckCell(
+            status=result.status,
+            detail=result.detail,
+            depth=depth,
+            recommendation=recommendation,
+            downgraded_from=result.downgraded_from,
+        )
+
+    standard = evaluate_cell(standard_check, "presence") if standard_check is not None else None
+    if level == "standard":
+        pro = CheckCell("NOT_RUN", "Not run because --level standard was selected.", "applied", rule.recommendation) if pro_check is not None else None
+    else:
+        pro = evaluate_cell(pro_check, "applied", rule.recommendation) if pro_check is not None else None
+    return RuleRow(
+        control_id=rule.control_id,
+        rule_id=rule.rule_id,
+        title=rule.title,
+        severity=rule.severity,
+        standard=standard,
+        pro=pro,
+        level=rule.level,
+        rationale=rule.rationale,
+        source_ref=rule.source_ref,
+        stig_id=rule.stig_id,
+        stig_part=rule.stig_part,
+        evidence_refs=rule.evidence_refs,
+    )
+
+
 def assess(
     rules: Iterable[AssessmentRule],
     device: DeviceContext,
@@ -475,7 +868,10 @@ def assess(
             results.append(_result(rule, "NOT_APPLICABLE", "Rule is outside the selected device assessment profile."))
             continue
         results.append(evaluate_rule(rule, device, config, evidence, waivers.get(rule.control_id), today))
-    return sorted(results, key=lambda item: (item.severity, item.control_id))
+    return sorted(
+        results,
+        key=lambda item: (SEVERITY_RANK.get(item.severity.casefold(), len(SEVERITY_RANK)), item.control_id),
+    )
 
 
 def coverage_summary(results: Iterable[AssessmentResult]) -> dict[str, int]:
@@ -487,23 +883,55 @@ def coverage_summary(results: Iterable[AssessmentResult]) -> dict[str, int]:
     return counts
 
 
-def exit_code(results: Iterable[AssessmentResult], fail_on: str = "high", allow_unknown: bool = False) -> int:
-    """0 complete; 2 threshold finding; 3 unknown/manual; 1 invalid policy."""
-    if fail_on not in {"none", "critical", "high", "medium", "low"}:
+def exit_code(
+    results: Iterable[AssessmentResult | RuleRow],
+    fail_on: str = "high",
+    allow_unknown: bool = False,
+    strict_manual: bool = False,
+    fail_on_pro: str = "none",
+) -> int:
+    """0 complete; 2 qualifying Standard/opt-in Pro finding; 3 incomplete by policy; 1 invalid policy."""
+    valid_thresholds = {"none", "critical", "high", "medium", "low"}
+    if fail_on not in valid_thresholds or fail_on_pro not in valid_thresholds:
         return 1
     items = list(results)
-    if not allow_unknown and any(item.status in {"UNKNOWN", "MANUAL"} for item in items):
+    rank = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+    def qualifies(status: str, severity: str, threshold: str) -> bool:
+        return threshold != "none" and status == "FAIL" and severity.casefold() in rank and rank[severity.casefold()] <= rank[threshold]
+
+    standard_cells: list[tuple[str, str]] = []
+    for item in items:
+        # Accept RuleRow-like objects as well as the exact class. This keeps
+        # the policy correct if callers load equivalent rows through a module
+        # alias or test harness.
+        if hasattr(item, "standard") and hasattr(item, "pro"):
+            standard = item.standard
+            pro = item.pro
+            if standard is not None:
+                standard_cells.append((standard.status, item.severity))
+            if pro is not None and qualifies(pro.status, item.severity, fail_on_pro):
+                return 2
+        else:
+            standard_cells.append((item.status, item.severity))
+    if any(qualifies(status, severity, fail_on) for status, severity in standard_cells):
+        return 2
+    if not allow_unknown and any(status == "UNKNOWN" for status, _ in standard_cells):
         return 3
-    if fail_on != "none":
-        rank = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-        threshold = rank[fail_on]
-        if any(item.status == "FAIL" and item.severity in rank and rank[item.severity] <= threshold for item in items):
-            return 2
+    if strict_manual and any(status == "MANUAL" for status, _ in standard_cells):
+        return 3
     return 0
 
 
-def report_markdown(device: DeviceContext, results: Iterable[AssessmentResult]) -> str:
-    items = list(results)
+def report_markdown(
+    device: DeviceContext,
+    results: Iterable[AssessmentResult],
+    interfaces: Iterable[Any] | None = None,
+) -> str:
+    items = sorted(
+        results,
+        key=lambda item: (SEVERITY_RANK.get(item.severity.casefold(), len(SEVERITY_RANK)), item.control_id),
+    )
     counts = coverage_summary(items)
     out = [
         "# Cisco IOS STIG assessment",
@@ -517,6 +945,19 @@ def report_markdown(device: DeviceContext, results: Iterable[AssessmentResult]) 
     ]
     for status in STATUSES:
         out.append(f"| {status} | {counts[status]} |")
+    if interfaces is not None:
+        inventory = list(interfaces)
+        role_counts: dict[str, int] = {}
+        for interface in inventory:
+            role = interface.role if hasattr(interface, "role") else interface.get("role", "unknown")
+            role_counts[role] = role_counts.get(role, 0) + 1
+        out += ["", "## Interface inventory", "", "| Role | Count |", "|---|---:|"]
+        for role, count in sorted(role_counts.items()):
+            out.append(f"| {role} | {count} |")
+        unknown = [interface.name if hasattr(interface, "name") else interface.get("name", "unknown")
+                   for interface in inventory
+                   if (interface.role if hasattr(interface, "role") else interface.get("role", "unknown")) == "unknown"]
+        out += ["", "Unknown-role interfaces: " + (", ".join(unknown) if unknown else "none")]
     out += ["", "| Control | Severity | Status | Title | Detail |", "|---|---|---|---|---|"]
     for item in items:
         clean_detail = item.detail.replace("|", "\\|").replace("\n", " ")
